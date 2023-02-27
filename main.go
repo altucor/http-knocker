@@ -2,8 +2,8 @@ package main
 
 import (
 	"flag"
-	"httpKnocker/common"
-	"httpKnocker/logging"
+	"http-knocker/common"
+	"http-knocker/logging"
 )
 
 /*

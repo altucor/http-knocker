@@ -3,8 +3,8 @@ package firewallCommon
 import (
 	"encoding/json"
 	"fmt"
-	"httpKnocker/firewallCommon/firewallField"
-	"httpKnocker/logging"
+	"http-knocker/firewallCommon/firewallField"
+	"http-knocker/logging"
 	"regexp"
 )
 

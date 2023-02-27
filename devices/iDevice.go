@@ -1,7 +1,7 @@
 package devices
 
 import (
-	"httpKnocker/deviceCommon"
+	"http-knocker/deviceCommon"
 )
 
 type DeviceType string

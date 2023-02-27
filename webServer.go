@@ -3,8 +3,8 @@ package main
 import (
 	"context"
 	"fmt"
-	"httpKnocker/common"
-	"httpKnocker/logging"
+	"http-knocker/common"
+	"http-knocker/logging"
 	"net/http"
 	"os"
 	"os/signal"

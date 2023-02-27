@@ -1,9 +1,9 @@
 package firewalls
 
 import (
-	"httpKnocker/common"
-	"httpKnocker/devices"
-	"httpKnocker/firewallCommon/firewallField"
+	"http-knocker/common"
+	"http-knocker/devices"
+	"http-knocker/firewallCommon/firewallField"
 )
 
 type IFirewall interface {

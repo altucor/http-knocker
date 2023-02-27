@@ -2,7 +2,7 @@ package firewallCommon
 
 import (
 	"encoding/json"
-	"httpKnocker/logging"
+	"http-knocker/logging"
 	"io/ioutil"
 	"net/http"
 	"strings"

@@ -1,8 +1,8 @@
 package deviceResponse
 
 import (
-	"httpKnocker/deviceCommon"
-	"httpKnocker/firewallCommon"
+	"http-knocker/deviceCommon"
+	"http-knocker/firewallCommon"
 	"net/http"
 )
 

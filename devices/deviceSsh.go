@@ -3,9 +3,9 @@ package devices
 import (
 	"errors"
 	"fmt"
-	"httpKnocker/deviceCommon"
-	"httpKnocker/deviceResponse"
-	"httpKnocker/logging"
+	"http-knocker/deviceCommon"
+	"http-knocker/deviceResponse"
+	"http-knocker/logging"
 
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/exp/slices"

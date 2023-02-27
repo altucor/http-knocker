@@ -1,7 +1,7 @@
 package deviceCommon
 
 import (
-	"httpKnocker/firewallCommon"
+	"http-knocker/firewallCommon"
 	"net/http"
 )
 

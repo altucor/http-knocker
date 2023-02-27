@@ -3,7 +3,7 @@ package devices
 import (
 	"encoding/json"
 	"fmt"
-	"httpKnocker/logging"
+	"http-knocker/logging"
 	"strings"
 
 	"github.com/go-routeros/routeros"

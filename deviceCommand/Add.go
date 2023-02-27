@@ -1,10 +1,10 @@
 package deviceCommand
 
 import (
-	"httpKnocker/deviceCommon"
-	"httpKnocker/firewallCommon"
-	"httpKnocker/firewallCommon/firewallField"
-	"httpKnocker/logging"
+	"http-knocker/deviceCommon"
+	"http-knocker/firewallCommon"
+	"http-knocker/firewallCommon/firewallField"
+	"http-knocker/logging"
 	"net/http"
 	"net/netip"
 )

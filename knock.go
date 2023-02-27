@@ -5,10 +5,10 @@ import (
 	"net/http"
 	"strings"
 
-	"httpKnocker/common"
-	"httpKnocker/firewallCommon/firewallField"
-	"httpKnocker/firewalls"
-	"httpKnocker/logging"
+	"http-knocker/common"
+	"http-knocker/firewallCommon/firewallField"
+	"http-knocker/firewalls"
+	"http-knocker/logging"
 
 	auth "github.com/abbot/go-http-auth"
 )

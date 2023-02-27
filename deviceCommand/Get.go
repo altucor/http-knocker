@@ -1,7 +1,7 @@
 package deviceCommand
 
 import (
-	"httpKnocker/deviceCommon"
+	"http-knocker/deviceCommon"
 	"net/http"
 )
 

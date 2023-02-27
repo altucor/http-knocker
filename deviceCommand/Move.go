@@ -3,8 +3,8 @@ package deviceCommand
 import (
 	"encoding/json"
 	"fmt"
-	"httpKnocker/deviceCommon"
-	"httpKnocker/logging"
+	"http-knocker/deviceCommon"
+	"http-knocker/logging"
 	"net/http"
 )
 

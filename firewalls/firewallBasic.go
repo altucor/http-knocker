@@ -4,12 +4,12 @@ import (
 	"crypto/sha1"
 	"errors"
 	"fmt"
-	"httpKnocker/common"
-	"httpKnocker/deviceCommand"
-	"httpKnocker/deviceCommon"
-	"httpKnocker/devices"
-	"httpKnocker/firewallCommon/firewallField"
-	"httpKnocker/logging"
+	"http-knocker/common"
+	"http-knocker/deviceCommand"
+	"http-knocker/deviceCommon"
+	"http-knocker/devices"
+	"http-knocker/firewallCommon/firewallField"
+	"http-knocker/logging"
 	"net/netip"
 	"strconv"
 	"strings"
@@ -103,7 +103,7 @@ type firewallBasic struct {
 func FirewallBasicNew(dev devices.IDevice, cfg common.EndpointCfg, firewallCfg common.FirewallCfg) *firewallBasic {
 	ctx := firewallBasic{
 		name:                  "basicfirewall",
-		prefix:                "httpknocker",
+		prefix:                "http-knocker",
 		device:                dev,
 		endpoint:              cfg,
 		firewallCfg:           firewallCfg,

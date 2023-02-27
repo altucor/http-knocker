@@ -2,7 +2,7 @@ package common
 
 import (
 	"errors"
-	"httpKnocker/logging"
+	"http-knocker/logging"
 	"regexp"
 	"strconv"
 	"strings"

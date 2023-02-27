@@ -4,9 +4,9 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"httpKnocker/deviceCommon"
-	"httpKnocker/deviceResponse"
-	"httpKnocker/logging"
+	"http-knocker/deviceCommon"
+	"http-knocker/deviceResponse"
+	"http-knocker/logging"
 	"net/http"
 
 	"golang.org/x/exp/slices"

@@ -2,7 +2,7 @@ package deviceCommand
 
 import (
 	"fmt"
-	"httpKnocker/deviceCommon"
+	"http-knocker/deviceCommon"
 	"net/http"
 )
 

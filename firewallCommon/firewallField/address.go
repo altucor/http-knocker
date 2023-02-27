@@ -2,9 +2,10 @@ package firewallField
 
 import (
 	"errors"
-	"http-knocker/logging"
 	"net/netip"
 	"strings"
+
+	"github.com/altucor/http-knocker/logging"
 )
 
 type Address struct {

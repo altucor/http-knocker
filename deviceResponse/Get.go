@@ -1,9 +1,10 @@
 package deviceResponse
 
 import (
-	"http-knocker/deviceCommon"
-	"http-knocker/firewallCommon"
 	"net/http"
+
+	"github.com/altucor/http-knocker/deviceCommon"
+	"github.com/altucor/http-knocker/firewallCommon"
 )
 
 type Get struct {

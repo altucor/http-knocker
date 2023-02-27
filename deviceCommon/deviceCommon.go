@@ -1,8 +1,9 @@
 package deviceCommon
 
 import (
-	"http-knocker/firewallCommon"
 	"net/http"
+
+	"github.com/altucor/http-knocker/firewallCommon"
 )
 
 type DeviceCommandType string

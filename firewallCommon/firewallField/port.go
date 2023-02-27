@@ -2,8 +2,9 @@ package firewallField
 
 import (
 	"fmt"
-	"http-knocker/logging"
 	"strconv"
+
+	"github.com/altucor/http-knocker/logging"
 )
 
 type Port struct {

@@ -2,10 +2,11 @@ package firewallCommon
 
 import (
 	"encoding/json"
-	"http-knocker/logging"
 	"io/ioutil"
 	"net/http"
 	"strings"
+
+	"github.com/altucor/http-knocker/logging"
 )
 
 type FirewallRuleList struct {

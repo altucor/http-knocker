@@ -2,8 +2,9 @@ package main
 
 import (
 	"flag"
-	"http-knocker/common"
-	"http-knocker/logging"
+
+	"github.com/altucor/http-knocker/common"
+	"github.com/altucor/http-knocker/logging"
 )
 
 /*

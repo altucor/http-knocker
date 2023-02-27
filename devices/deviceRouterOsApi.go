@@ -3,8 +3,9 @@ package devices
 import (
 	"encoding/json"
 	"fmt"
-	"http-knocker/logging"
 	"strings"
+
+	"github.com/altucor/http-knocker/logging"
 
 	"github.com/go-routeros/routeros"
 )

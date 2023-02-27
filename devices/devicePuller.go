@@ -4,12 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"http-knocker/deviceCommon"
-	"http-knocker/logging"
 	"net/http"
 	"os"
 	"os/signal"
 	"time"
+
+	"github.com/altucor/http-knocker/deviceCommon"
+	"github.com/altucor/http-knocker/logging"
 
 	"github.com/gorilla/mux"
 )

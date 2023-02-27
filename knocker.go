@@ -7,11 +7,11 @@ import (
 
 	"github.com/gorilla/mux"
 
-	"http-knocker/common"
-	"http-knocker/devices"
-	"http-knocker/firewallCommon"
-	"http-knocker/firewalls"
-	"http-knocker/logging"
+	"github.com/altucor/http-knocker/common"
+	"github.com/altucor/http-knocker/devices"
+	"github.com/altucor/http-knocker/firewallCommon"
+	"github.com/altucor/http-knocker/firewalls"
+	"github.com/altucor/http-knocker/logging"
 
 	auth "github.com/abbot/go-http-auth"
 )

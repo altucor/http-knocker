@@ -3,9 +3,10 @@ package firewallCommon
 import (
 	"encoding/json"
 	"fmt"
-	"http-knocker/firewallCommon/firewallField"
-	"http-knocker/logging"
 	"regexp"
+
+	"github.com/altucor/http-knocker/firewallCommon/firewallField"
+	"github.com/altucor/http-knocker/logging"
 )
 
 type FirewallRule struct {

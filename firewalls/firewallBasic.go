@@ -4,17 +4,18 @@ import (
 	"crypto/sha1"
 	"errors"
 	"fmt"
-	"http-knocker/common"
-	"http-knocker/deviceCommand"
-	"http-knocker/deviceCommon"
-	"http-knocker/devices"
-	"http-knocker/firewallCommon/firewallField"
-	"http-knocker/logging"
 	"net/netip"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/altucor/http-knocker/common"
+	"github.com/altucor/http-knocker/deviceCommand"
+	"github.com/altucor/http-knocker/deviceCommon"
+	"github.com/altucor/http-knocker/devices"
+	"github.com/altucor/http-knocker/firewallCommon/firewallField"
+	"github.com/altucor/http-knocker/logging"
 )
 
 type firewallBasicComment struct {

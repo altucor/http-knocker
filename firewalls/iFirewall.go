@@ -1,9 +1,9 @@
 package firewalls
 
 import (
-	"http-knocker/common"
-	"http-knocker/devices"
-	"http-knocker/firewallCommon/firewallField"
+	"github.com/altucor/http-knocker/common"
+	"github.com/altucor/http-knocker/devices"
+	"github.com/altucor/http-knocker/firewallCommon/firewallField"
 )
 
 type IFirewall interface {

@@ -1,8 +1,9 @@
 package deviceCommand
 
 import (
-	"http-knocker/deviceCommon"
 	"net/http"
+
+	"github.com/altucor/http-knocker/deviceCommon"
 )
 
 type Get struct {

@@ -2,10 +2,11 @@ package common
 
 import (
 	"errors"
-	"http-knocker/logging"
 	"regexp"
 	"strconv"
 	"strings"
+
+	"github.com/altucor/http-knocker/logging"
 )
 
 type DurationSeconds struct {

@@ -2,8 +2,9 @@ package deviceCommand
 
 import (
 	"fmt"
-	"http-knocker/deviceCommon"
 	"net/http"
+
+	"github.com/altucor/http-knocker/deviceCommon"
 )
 
 type Remove struct {

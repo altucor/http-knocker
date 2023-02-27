@@ -2,7 +2,8 @@ package common
 
 import (
 	"errors"
-	"http-knocker/logging"
+
+	"github.com/altucor/http-knocker/logging"
 
 	"golang.org/x/exp/slices"
 )

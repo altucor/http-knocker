@@ -3,12 +3,13 @@ package main
 import (
 	"context"
 	"fmt"
-	"http-knocker/common"
-	"http-knocker/logging"
 	"net/http"
 	"os"
 	"os/signal"
 	"time"
+
+	"github.com/altucor/http-knocker/common"
+	"github.com/altucor/http-knocker/logging"
 
 	"github.com/gorilla/mux"
 )

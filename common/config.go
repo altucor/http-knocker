@@ -3,10 +3,10 @@ package common
 import (
 	"io/ioutil"
 
-	"http-knocker/devices"
-	"http-knocker/firewallCommon"
-	"http-knocker/firewallCommon/firewallField"
-	"http-knocker/logging"
+	"github.com/altucor/http-knocker/devices"
+	"github.com/altucor/http-knocker/firewallCommon"
+	"github.com/altucor/http-knocker/firewallCommon/firewallField"
+	"github.com/altucor/http-knocker/logging"
 
 	"gopkg.in/yaml.v3"
 )

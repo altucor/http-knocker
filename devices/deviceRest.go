@@ -4,10 +4,11 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"http-knocker/deviceCommon"
-	"http-knocker/deviceResponse"
-	"http-knocker/logging"
 	"net/http"
+
+	"github.com/altucor/http-knocker/deviceCommon"
+	"github.com/altucor/http-knocker/deviceResponse"
+	"github.com/altucor/http-knocker/logging"
 
 	"golang.org/x/exp/slices"
 )

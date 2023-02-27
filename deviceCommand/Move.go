@@ -3,9 +3,10 @@ package deviceCommand
 import (
 	"encoding/json"
 	"fmt"
-	"http-knocker/deviceCommon"
-	"http-knocker/logging"
 	"net/http"
+
+	"github.com/altucor/http-knocker/deviceCommon"
+	"github.com/altucor/http-knocker/logging"
 )
 
 type Move struct {

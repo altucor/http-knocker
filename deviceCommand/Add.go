@@ -1,12 +1,13 @@
 package deviceCommand
 
 import (
-	"http-knocker/deviceCommon"
-	"http-knocker/firewallCommon"
-	"http-knocker/firewallCommon/firewallField"
-	"http-knocker/logging"
 	"net/http"
 	"net/netip"
+
+	"github.com/altucor/http-knocker/deviceCommon"
+	"github.com/altucor/http-knocker/firewallCommon"
+	"github.com/altucor/http-knocker/firewallCommon/firewallField"
+	"github.com/altucor/http-knocker/logging"
 )
 
 type Add struct {

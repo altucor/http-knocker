@@ -59,7 +59,7 @@ func knockInitDevice(firewallCfg common.FirewallCfg, endpoint common.EndpointCfg
 func parseHtpasswdUserLine(line string) (string, string, error) {
 	parts := strings.Split(line, ":")
 	if len(parts) != 2 {
-		return "", "", errors.New("Cannot parse htpasswd line")
+		return "", "", errors.New("cannot parse htpasswd line")
 	}
 	return parts[0], parts[1], nil
 }
@@ -68,8 +68,8 @@ func (ctx *Knocker) setHtpasswdUsersFromArray(users []string) error {
 	for _, line := range users {
 		user, passHash, err := parseHtpasswdUserLine(line)
 		if err != nil {
-			logging.CommonLog().Error("Cannot parse htpasswd line")
-			return errors.New("Cannot parse htpasswd line")
+			logging.CommonLog().Error("cannot parse htpasswd line")
+			return errors.New("cannot parse htpasswd line")
 		}
 		ctx.authUsers[user] = passHash
 	}
@@ -79,16 +79,16 @@ func (ctx *Knocker) setHtpasswdUsersFromArray(users []string) error {
 func (ctx *Knocker) setHtpasswdUsersFromFile(file string) error {
 	data, err := os.ReadFile(file)
 	if err != nil {
-		logging.CommonLog().Errorf("Cannot parse htpasswd file: %s\n", file)
-		return errors.New("Cannot parse htpasswd file")
+		logging.CommonLog().Errorf("cannot parse htpasswd file: %s\n", file)
+		return errors.New("cannot parse htpasswd file")
 	}
 
 	lines := strings.Split(string(data), "\n")
 	for _, line := range lines {
 		user, passHash, err := parseHtpasswdUserLine(line)
 		if err != nil {
-			logging.CommonLog().Error("Cannot parse htpasswd line")
-			return errors.New("Cannot parse htpasswd line")
+			logging.CommonLog().Error("cannot parse htpasswd line")
+			return errors.New("cannot parse htpasswd line")
 		}
 		ctx.authUsers[user] = passHash
 	}

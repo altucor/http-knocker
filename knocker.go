@@ -96,13 +96,6 @@ func (ctx *Knocker) setHtpasswdUsersFromFile(file string) error {
 }
 
 func (ctx *Knocker) basicAuthCheck(user string, realm string) string {
-	// TODO: add reading of htpasswd file
-	// if user == "john" {
-	// 	// password is "hello"
-	// 	return "$1$dlPL2MqE$oQmn16q49SqdmhenQuNgs1"
-	// }
-	// return ""
-
 	passHash, ok := ctx.authUsers[user]
 	if ok {
 		return passHash

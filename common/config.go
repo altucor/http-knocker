@@ -18,13 +18,10 @@ type ServerConfig struct {
 }
 
 type FirewallCfg struct {
-	FirewallType      firewallCommon.FirewallType    `yaml:"firewallType"`
-	DropRuleComment   string                         `yaml:"dropRuleCommnet"`
-	Protocol          devices.DeviceProtocol         `yaml:"protocol"`
-	DeviceRouterOsApi *devices.ConnectionRouterOsApi `yaml:"deviceRouterOsApi"`
-	DeviceRest        *devices.ConnectionRest        `yaml:"deviceRest"`
-	DeviceSsh         *devices.ConnectionSSHCfg      `yaml:"deviceSsh"`
-	DevicePuller      *devices.ConnectionPuller      `yaml:"devicePuller"`
+	FirewallType    firewallCommon.FirewallType `yaml:"firewallType"`
+	DropRuleComment string                      `yaml:"dropRuleCommnet"`
+	Protocol        devices.DeviceProtocol      `yaml:"protocol"`
+	Device          string                      `yaml:"device"`
 }
 
 type IpAddrSource struct {
@@ -53,8 +50,14 @@ type KnockCfg struct {
 	Endpoint string `yaml:"enpoint"`
 }
 
+type DeviceWrapper struct {
+	Type             devices.DeviceType           `yaml:"type"`
+	DeviceConnection devices.DeviceConnectionDesc `yaml:"connection"`
+}
+
 type Configuration struct {
 	Server    ServerConfig
+	Devices   map[string]*DeviceWrapper
 	Firewalls map[string]*FirewallCfg
 	Endpoints map[string]*EndpointCfg
 	Knocks    map[string]*KnockCfg
@@ -97,22 +100,4 @@ func ConfigurationNew(path string) (Configuration, error) {
 		logging.CommonLog().Fatal("[Config] Validation of yaml file is failed")
 	}
 	return cfg, nil
-}
-
-func (cfg *Configuration) ConfigDebugPrint() {
-	logging.CommonLog().Debug("%+v\n", cfg)
-	for key, element := range cfg.Firewalls {
-		logging.CommonLog().Debugf("Firewall Key:%s => Element:%+v\n", key, element)
-		if element.DeviceRest != nil {
-			logging.CommonLog().Debugf("RouterOsRest = %+v\n", element.DeviceRest)
-		} else if element.DeviceSsh != nil {
-			logging.CommonLog().Debugf("Ssh = %+v\n", element.DeviceSsh)
-		}
-	}
-	for key, element := range cfg.Endpoints {
-		logging.CommonLog().Debugf("Endpoint Key:%s => Element:%+v\n", key, element)
-	}
-	for key, element := range cfg.Knocks {
-		logging.CommonLog().Debugf("Knock Key:%s => Element:%+v\n", key, element)
-	}
 }

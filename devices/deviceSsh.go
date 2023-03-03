@@ -26,14 +26,19 @@ type DeviceSsh struct {
 	client             *ssh.Client
 }
 
-func DeviceSshNew(cfg ConnectionSSHCfg) *DeviceSsh {
-	logging.CommonLog().Debug(cfg.Host + ":" + fmt.Sprint(cfg.Port))
+func DeviceSshNew(cfg DeviceConnectionDesc) *DeviceSsh {
 	ctx := &DeviceSsh{
 		client: nil,
 		supportedProtocols: []DeviceProtocol{
 			PROTOCOL_IP_TABLES,
 		},
-		config: cfg,
+		config: ConnectionSSHCfg{
+			Username:   cfg.Username,
+			Password:   cfg.Password,
+			Host:       cfg.Host,
+			Port:       cfg.Port,
+			KnownHosts: cfg.KnownHosts,
+		},
 	}
 
 	return ctx

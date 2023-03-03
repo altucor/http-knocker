@@ -24,10 +24,16 @@ type DeviceRouterOsApi struct {
 	tls    bool
 }
 
-func DeviceRouterOsNew(cfg ConnectionRouterOsApi) *DeviceRouterOsApi {
+func DeviceRouterOsNew(cfg DeviceConnectionDesc) *DeviceRouterOsApi {
 	ctx := &DeviceRouterOsApi{
 		client: nil,
-		config: cfg,
+		config: ConnectionRouterOsApi{
+			Username: cfg.Username,
+			Password: cfg.Password,
+			Host:     cfg.Host,
+			Port:     cfg.Port,
+			Tls:      cfg.Tls,
+		},
 	}
 	return ctx
 }

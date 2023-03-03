@@ -3,6 +3,7 @@ package main
 import (
 	"errors"
 	"os"
+	"os/signal"
 	"strings"
 
 	"github.com/gorilla/mux"
@@ -19,6 +20,7 @@ import (
 type Knocker struct {
 	config    common.Configuration
 	webServer *WebServer
+	devices   map[string]devices.IDevice
 	knockers  map[string]*Knock
 	router    *mux.Router
 	authUsers map[string]string
@@ -36,22 +38,16 @@ func getEndpointAssociatedWithFirewall(cfg *Configuration, firewallName string) 
 }
 */
 
-func GetDeviceFromCfg(firewallCfg common.FirewallCfg) devices.IDevice {
-	if firewallCfg.DeviceRest != nil {
-		return devices.DeviceRestNew(*firewallCfg.DeviceRest)
-	} else if firewallCfg.DeviceSsh != nil {
-		return devices.DeviceSshNew(*firewallCfg.DeviceSsh)
-	}
-	return nil
-}
-
-func knockInitDevice(firewallCfg common.FirewallCfg, endpoint common.EndpointCfg) *Knock {
+func knockInitDevice(firewallCfg common.FirewallCfg, device devices.IDevice, endpoint common.EndpointCfg) *Knock {
 	var knockObject *Knock = nil
 
 	switch firewallCfg.FirewallType.GetValue() {
 	case firewallCommon.FIREWALL_BASIC:
-		knockObject = KnockNew(firewalls.FirewallBasicNew(
-			GetDeviceFromCfg(firewallCfg), endpoint, firewallCfg))
+		knockObject = KnockNew(
+			firewalls.FirewallBasicNew(
+				device, endpoint, firewallCfg,
+			),
+		)
 	}
 	return knockObject
 }
@@ -107,11 +103,22 @@ func KnockerNew(cfg common.Configuration) *Knocker {
 	ctx := &Knocker{
 		config:    cfg,
 		webServer: NewWebServer(cfg.Server),
+		devices:   make(map[string]devices.IDevice),
 		knockers:  make(map[string]*Knock),
 		router:    mux.NewRouter(),
 		authUsers: make(map[string]string),
 	}
-	for key, element := range cfg.Knocks {
+	for key, dev := range ctx.config.Devices {
+		switch dev.Type {
+		case devices.DeviceTypeRest:
+			ctx.devices[key] = devices.DeviceRestNew(dev.DeviceConnection)
+		case devices.DeviceTypeSsh:
+			ctx.devices[key] = devices.DeviceSshNew(dev.DeviceConnection)
+		case devices.DeviceTypePuller:
+			ctx.devices[key] = devices.DevicePullerNew(dev.DeviceConnection)
+		}
+	}
+	for key, element := range ctx.config.Knocks {
 		logging.CommonLog().Info("Key:%s => Element:%+v\n", key, element)
 		// TODO: Separate devices in another structure
 		// To be able initialize devices once and share them
@@ -119,6 +126,7 @@ func KnockerNew(cfg common.Configuration) *Knocker {
 		// Make possible to assign any device to any firewall
 		ctx.knockers[key] = knockInitDevice(
 			*ctx.config.Firewalls[element.Firewall],
+			ctx.devices[ctx.config.Firewalls[element.Firewall].Device],
 			*ctx.config.Endpoints[element.Endpoint],
 		)
 		if ctx.knockers[key] != nil {
@@ -159,14 +167,25 @@ func KnockerNew(cfg common.Configuration) *Knocker {
 			}
 		}
 	}
-	ctx.webServer.Start(ctx.router)
 	return ctx
 }
 
 func (ctx *Knocker) Start() {
+	for _, item := range ctx.devices {
+		item.Start()
+	}
+	ctx.webServer.Start(ctx.router)
+}
 
+func (ctx *Knocker) Wait() {
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, os.Interrupt)
+	<-c
 }
 
 func (ctx *Knocker) Stop() {
-
+	ctx.webServer.Stop()
+	for _, item := range ctx.devices {
+		item.Stop()
+	}
 }

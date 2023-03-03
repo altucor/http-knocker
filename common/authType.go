@@ -33,7 +33,7 @@ func (ctx *AuthType) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	tempAuthType := AuthType(tempStr)
 	if !slices.Contains(authTypeArr, tempAuthType) {
 		logging.CommonLog().Error("Cannot init from string")
-		return errors.New("Cannot init from string")
+		return errors.New("cannot init from string")
 	}
 	*ctx = tempAuthType
 	return nil

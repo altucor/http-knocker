@@ -16,7 +16,7 @@ import (
 type ConnectionRest struct {
 	Username string `yaml:"username"`
 	Password string `yaml:"password"`
-	Enpoint  string `yaml:"endpoint"`
+	Endpoint string `yaml:"endpoint"`
 	Tls      bool   `yaml:"tls"`
 }
 
@@ -25,9 +25,14 @@ type DeviceRest struct {
 	supportedProtocols []DeviceProtocol
 }
 
-func DeviceRestNew(cfg ConnectionRest) *DeviceRest {
+func DeviceRestNew(cfg DeviceConnectionDesc) *DeviceRest {
 	ctx := &DeviceRest{
-		config: cfg,
+		config: ConnectionRest{
+			Username: cfg.Username,
+			Password: cfg.Password,
+			Endpoint: cfg.Endpoint,
+			Tls:      cfg.Tls,
+		},
 		supportedProtocols: []DeviceProtocol{
 			PROTOCOL_ROUTER_OS_REST,
 		},
@@ -57,7 +62,7 @@ func (ctx *DeviceRest) GetType() DeviceType {
 }
 
 func (ctx *DeviceRest) executeRestCommand(method string, url string, body string) (http.Response, error) {
-	req, err := http.NewRequest(method, ctx.config.Enpoint+url, bytes.NewReader([]byte(body)))
+	req, err := http.NewRequest(method, ctx.config.Endpoint+url, bytes.NewReader([]byte(body)))
 	if err != nil {
 		logging.CommonLog().Error("could not create request: %s\n", err)
 	}

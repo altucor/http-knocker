@@ -20,6 +20,7 @@ Firewalls:
 - IpTables
 - UFW
 - PfSense
+- Firewalld
 
 Ideas:
 - 1) Puller device with additional http endpoint
@@ -42,5 +43,7 @@ func main() {
 	}
 	knocker := KnockerNew(cfg)
 	knocker.Start()
+	knocker.Wait()
 	logging.CommonLog().Info("end of app")
+	knocker.Stop()
 }

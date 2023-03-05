@@ -22,11 +22,16 @@ type firewallBasicComment struct {
 	delimiterKey string
 	prefix       string
 	firewallName string
-	timestamp    uint64
+	timestamp    time.Time
 	endpointHash string
 }
 
-func FirewallCommentNew(delimiterKey string, prefix string, firewallName string, timestamp uint64, endpointHash string) firewallBasicComment {
+func FirewallCommentNew(delimiterKey string, prefix string, firewallName string, timestamp time.Time, endpointHash string) (firewallBasicComment, error) {
+	if strings.ContainsAny(prefix, delimiterKey) ||
+		strings.ContainsAny(firewallName, delimiterKey) ||
+		strings.ContainsAny(endpointHash, delimiterKey) {
+		return firewallBasicComment{}, errors.New("comment parameter cannot have delimiter key")
+	}
 	comment := firewallBasicComment{
 		delimiterKey: delimiterKey,
 		prefix:       prefix,
@@ -34,30 +39,34 @@ func FirewallCommentNew(delimiterKey string, prefix string, firewallName string,
 		timestamp:    timestamp,
 		endpointHash: endpointHash,
 	}
-	return comment
+	return comment, nil
 }
 
-func FirewallCommentNewFromString(comment string, delimiterKey string) firewallBasicComment {
+func FirewallCommentNewFromString(comment string, delimiterKey string) (firewallBasicComment, error) {
 	commentParts := strings.Split(comment, delimiterKey)
 	if len(commentParts) != 4 {
-		return firewallBasicComment{}
+		// Do not report here errors, because not all rules acan have valid comment structure
+		return firewallBasicComment{}, nil
 	}
-	timestamp, _ := strconv.ParseInt(commentParts[2], 10, 64)
+	timestamp, err := strconv.ParseInt(commentParts[2], 10, 64)
+	if err != nil {
+		return firewallBasicComment{}, err
+	}
 	commentObj := firewallBasicComment{
 		delimiterKey: delimiterKey,
 		prefix:       commentParts[0],
 		firewallName: commentParts[1],
-		timestamp:    uint64(timestamp),
+		timestamp:    time.Unix(timestamp, 0),
 		endpointHash: commentParts[3],
 	}
 
-	return commentObj
+	return commentObj, nil
 }
 
 func (ctx firewallBasicComment) build() string {
 	comment := ctx.prefix + ctx.delimiterKey
 	comment += ctx.firewallName + ctx.delimiterKey
-	comment += fmt.Sprintf("%d", ctx.timestamp) + ctx.delimiterKey
+	comment += fmt.Sprintf("%d", ctx.timestamp.Unix()) + ctx.delimiterKey
 	comment += ctx.endpointHash
 	return comment
 }
@@ -70,7 +79,7 @@ func (ctx firewallBasicComment) getFirewallName() string {
 	return ctx.firewallName
 }
 
-func (ctx firewallBasicComment) getTimestamp() uint64 {
+func (ctx firewallBasicComment) getTimestamp() time.Time {
 	return ctx.timestamp
 }
 
@@ -80,7 +89,7 @@ func (ctx firewallBasicComment) getEndpointHash() string {
 
 type ClientAdded struct {
 	Id    uint64
-	Added uint64
+	Added time.Time
 }
 
 type SafeAddedClientsStorage struct {
@@ -104,7 +113,7 @@ type firewallBasic struct {
 func FirewallBasicNew(dev devices.IDevice, cfg common.EndpointCfg, firewallCfg common.FirewallCfg) *firewallBasic {
 	ctx := firewallBasic{
 		name:                  "basicfirewall",
-		prefix:                "http-knocker",
+		prefix:                "httpKnocker",
 		device:                dev,
 		endpoint:              cfg,
 		firewallCfg:           firewallCfg,
@@ -136,7 +145,7 @@ func (ctx *firewallBasic) AddClient(ip_addr firewallField.Address) error {
 	// to prevent duplication rules for one ip addr
 	frwRules, err := ctx.GetRules()
 	if err != nil {
-		logging.CommonLog().Error("[FirewallBasic] AddClient cannot check is client exist: %s\n", err)
+		logging.CommonLog().Error("[FirewallBasic] AddClient cannot check is client exist: %s", err)
 		return err
 	}
 	for _, element := range frwRules.GetRules().GetList() {
@@ -144,7 +153,7 @@ func (ctx *firewallBasic) AddClient(ip_addr firewallField.Address) error {
 		if element.SrcAddress == ip_addr {
 			_, err := ctx.device.RunCommandWithReply(deviceCommand.RemoveNew(element.Id.GetValue()), ctx.firewallCfg.Protocol)
 			if err != nil {
-				logging.CommonLog().Error("[FirewallBasic] AddClient error removing client with duplicated src-address: %s\n", err)
+				logging.CommonLog().Error("[FirewallBasic] AddClient error removing client with duplicated src-address: %s", err)
 				return err
 			}
 		}
@@ -152,29 +161,30 @@ func (ctx *firewallBasic) AddClient(ip_addr firewallField.Address) error {
 
 	dropRuleId, err := ctx.GetDropRuleId()
 	if err != nil {
-		logging.CommonLog().Error("[FirewallBasic] AddClient cannot find drop rule id %d\n", dropRuleId)
+		logging.CommonLog().Error("[FirewallBasic] AddClient cannot find drop rule id %d", dropRuleId)
 		return err
 	}
 
-	addedTimestamp := uint64(time.Now().Unix())
-	comment := FirewallCommentNew(
+	comment, err := FirewallCommentNew(
 		ctx.delimiterKey,
 		ctx.prefix,
 		ctx.name,
-		addedTimestamp,
+		time.Now(),
 		ctx.hash,
 	)
+	if err != nil {
+		return err
+	}
 	frwCmdAdd := deviceCommand.AddNew(
 		ip_addr.GetValue(),
 		ctx.endpoint.Port,
 		ctx.endpoint.Protocol.GetValue(),
-		ctx.endpoint.DurationSeconds.GetValue(),
 		comment.build(),
 		dropRuleId,
 	)
 	_, err = ctx.device.RunCommandWithReply(frwCmdAdd, ctx.firewallCfg.Protocol)
 	if err != nil {
-		logging.CommonLog().Error("[FirewallBasic] Add command execution error: %s\n", err)
+		logging.CommonLog().Error("[FirewallBasic] Add command execution error: %s", err)
 		return err
 	}
 	ctx.needUpdateClientsList = true
@@ -225,10 +235,14 @@ func (ctx *firewallBasic) GetAddedClientIdsWithTimings() ([]ClientAdded, error) 
 	}
 
 	for _, element := range frwRules.GetRules().GetList() {
-		comment := element.Comment
-		if comment.GetValue() != "" {
-			comment := FirewallCommentNewFromString(comment.GetValue(), ctx.delimiterKey)
-			if comment.getPrefix() == ctx.prefix && comment.getFirewallName() == ctx.name {
+		if element.Comment.GetValue() != "" {
+			comment, err := FirewallCommentNewFromString(element.Comment.GetValue(), ctx.delimiterKey)
+			if err != nil {
+				logging.CommonLog().Errorf("Error parsing comment %s", element.Comment.GetValue())
+			}
+			if comment.getPrefix() == ctx.prefix &&
+				comment.getFirewallName() == ctx.name &&
+				comment.getEndpointHash() == ctx.hash {
 				clientIds = append(clientIds, ClientAdded{
 					Id:    element.Id.GetValue(),
 					Added: comment.getTimestamp(),
@@ -246,8 +260,8 @@ func (ctx *firewallBasic) CleanupExpiredClients() error {
 	}
 
 	for _, element := range clients {
-		logging.CommonLog().Info("Rule diff timestamp: %d Max duration: %d\n", uint64(time.Now().Unix())-element.Added, ctx.endpoint.DurationSeconds.GetValue())
-		if uint64(time.Now().Unix())-element.Added > ctx.endpoint.DurationSeconds.GetValue() {
+		logging.CommonLog().Info("Rule diff timestamp: %d Max duration: %d", time.Since(element.Added), ctx.endpoint.DurationSeconds.GetValue())
+		if time.Since(element.Added) > ctx.endpoint.DurationSeconds.GetValue() {
 			_, err := ctx.device.RunCommandWithReply(deviceCommand.RemoveNew(element.Id), ctx.firewallCfg.Protocol)
 			if err != nil {
 				return err
@@ -275,29 +289,30 @@ func ClientsWatchdog(firewall *firewallBasic) {
 			firewall.InitListOfAddedClients()
 		}
 		time.Sleep(time.Second)
-		logging.CommonLog().Infof("[firewallBasic] ClientsWatchdog worked %d\n", uint64(time.Now().Unix()))
+		logging.CommonLog().Infof("[firewallBasic] ClientsWatchdog worked %d", uint64(time.Now().Unix()))
 		firewall.addedClients.mu.Lock()
 		clientsLength := len(firewall.addedClients.clients)
 		firewall.addedClients.mu.Unlock()
 		if clientsLength == 0 {
 			continue
 		}
-		logging.CommonLog().Debugf("Clients: %v\n", firewall.addedClients.clients)
+		logging.CommonLog().Debugf("Clients: %v", firewall.addedClients.clients)
 		firewall.addedClients.mu.Lock()
 		for index, element := range firewall.addedClients.clients {
-			logging.CommonLog().Debugf("Rule diff timestamp: %d Max duration: %d\n",
-				uint64(time.Now().Unix())-element.Added,
-				firewall.endpoint.DurationSeconds.GetValue(),
+			curTime := time.Now()
+			logging.CommonLog().Debugf("Rule diff timestamp: %f Max duration: %d",
+				curTime.Sub(element.Added).Seconds(),
+				firewall.endpoint.DurationSeconds.GetSeconds(),
 			)
-			timeRemaining := firewall.endpoint.DurationSeconds.GetValue() - (uint64(time.Now().Unix()) - element.Added)
-			logging.CommonLog().Infof("Rule %d time remaining: %d sec\n", element.Id, timeRemaining)
-			if uint64(time.Now().Unix())-element.Added > firewall.endpoint.DurationSeconds.GetValue() {
+			timeRemaining := firewall.endpoint.DurationSeconds.GetValue() - curTime.Sub(element.Added)
+			logging.CommonLog().Infof("Rule %d time remaining: %f sec", element.Id, timeRemaining.Seconds())
+			if curTime.Sub(element.Added) > firewall.endpoint.DurationSeconds.GetValue() {
 				_, err := firewall.device.RunCommandWithReply(deviceCommand.RemoveNew(element.Id), firewall.firewallCfg.Protocol)
 				if err != nil {
-					logging.CommonLog().Errorf("[firewallBasic] ClientsWatchdog error removing client %s\n", err)
+					logging.CommonLog().Errorf("[firewallBasic] ClientsWatchdog error removing client %s", err)
 				} else {
 					// In case of success regenerate local list of added clients
-					logging.CommonLog().Infof("[firewallBasic] ClientsWatchdog Removed client from pending list: %v\n",
+					logging.CommonLog().Infof("[firewallBasic] ClientsWatchdog Removed client from pending list: %v",
 						firewall.addedClients.clients[index],
 					)
 					// If we removed some client than better to break cycle and try again next time

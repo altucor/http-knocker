@@ -1,10 +1,7 @@
 package logging
 
 import (
-	"fmt"
 	"os"
-	"path/filepath"
-	"runtime"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -42,12 +39,12 @@ timestamp level fileName functionName
 */
 
 func CommonLog() *log.Entry {
-	pc, fullFileName, lineNum, _ := runtime.Caller(1)
-	funcNameE := runtime.FuncForPC(pc).Name()
-	_, fileName := filepath.Split(fullFileName)
+	// pc, fullFileName, lineNum, _ := runtime.Caller(1)
+	// funcNameE := runtime.FuncForPC(pc).Name()
+	// _, fileName := filepath.Split(fullFileName)
 	return log.WithFields(log.Fields{
 		// "class": className,
-		"func": funcNameE,
-		"file": fileName + "@" + fmt.Sprint(lineNum),
+		// "func": funcNameE,
+		// "file": fileName + "@" + fmt.Sprint(lineNum),
 	})
 }

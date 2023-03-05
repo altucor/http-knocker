@@ -5,13 +5,15 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/altucor/http-knocker/logging"
 )
 
 type DurationSeconds struct {
-	value uint64
+	// value uint64
 	// TODO: Rewrite to type "time.Duration"
+	value time.Duration
 }
 
 func (ctx *DurationSeconds) UnmarshalYAML(unmarshal func(interface{}) error) error {
@@ -62,16 +64,23 @@ func DurationSecondsFromString(input string) (DurationSeconds, error) {
 		logging.CommonLog().Error("[DurationSeconds] Error getting seconds: %s\n", err)
 		return DurationSeconds{}, err
 	}
+	// duration := DurationSeconds{
+	// 	value: (hours * 60 * 60) + (minutes * 60) + seconds,
+	// }
 	duration := DurationSeconds{
-		value: (hours * 60 * 60) + (minutes * 60) + seconds,
+		value: time.Duration((hours * uint64(time.Hour)) + (minutes * uint64(time.Minute)) + (seconds * uint64(time.Second))),
 	}
 	return duration, nil
 }
 
-func (ctx *DurationSeconds) SetValue(seconds uint64) {
+func (ctx *DurationSeconds) SetValue(seconds time.Duration) {
 	ctx.value = seconds
 }
 
-func (ctx DurationSeconds) GetValue() uint64 {
+func (ctx DurationSeconds) GetValue() time.Duration {
 	return ctx.value
+}
+
+func (ctx DurationSeconds) GetSeconds() uint64 {
+	return uint64(ctx.value / time.Second)
 }

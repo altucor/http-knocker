@@ -11,12 +11,11 @@ import (
 )
 
 type Add struct {
-	cmdType         deviceCommon.DeviceCommandType
-	firewallRule    firewallCommon.FirewallRule
-	durationSeconds uint64
+	cmdType      deviceCommon.DeviceCommandType
+	firewallRule firewallCommon.FirewallRule
 }
 
-func AddNew(clientAddr netip.Addr, port uint16, protocol firewallField.ProtocolType, durationSeconds uint64, comment string, placeBefore uint64) Add {
+func AddNew(clientAddr netip.Addr, port uint16, protocol firewallField.ProtocolType, comment string, placeBefore uint64) Add {
 	frwRule := firewallCommon.FirewallRuleNew()
 	frwRule.Id.SetValue(firewallCommon.RULE_ID_INVALID)
 	frwRule.Action.SetValue(firewallField.ACCEPT)
@@ -29,9 +28,8 @@ func AddNew(clientAddr netip.Addr, port uint16, protocol firewallField.ProtocolT
 	frwRule.PlaceBefore.SetValue(placeBefore)
 
 	cmd := Add{
-		cmdType:         deviceCommon.DeviceCommandAdd,
-		firewallRule:    frwRule,
-		durationSeconds: durationSeconds,
+		cmdType:      deviceCommon.DeviceCommandAdd,
+		firewallRule: frwRule,
 	}
 	return cmd
 }

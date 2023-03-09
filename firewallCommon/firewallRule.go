@@ -113,7 +113,7 @@ func (ctx *FirewallRule) ToRest() (string, error) {
 
 	jsonBytes, err := json.Marshal(jsonMap)
 	if err != nil {
-		logging.CommonLog().Error("[FirewallRule] Error marshaling to json: %s\n", err)
+		logging.CommonLog().Error("[FirewallRule] Error marshaling to REST: %s\n", err)
 		return "", err
 	}
 
@@ -134,4 +134,27 @@ func (ctx *FirewallRule) ToIpTables() (string, error) {
 	result += "-m comment --comment \"" + ctx.Comment.MarshalIpTables() + "\""
 
 	return result, nil
+}
+
+func (ctx *FirewallRule) ToJson() (string, error) {
+	jsonMap := make(map[string]string)
+	if ctx.Id.GetValue() != RULE_ID_INVALID {
+		jsonMap["id"] = ctx.Id.MarshalRest()
+	}
+	jsonMap["action"] = ctx.Action.MarshalRest()
+	jsonMap["chain"] = ctx.Chain.MarshalRest()
+	jsonMap["disabled"] = ctx.Disabled.MarshalRest()
+	jsonMap["protocol"] = ctx.Protocol.MarshalRest()
+	jsonMap["src-address"] = ctx.SrcAddress.MarshalRest()
+	jsonMap["dst-port"] = ctx.DstPort.MarshalRest()
+	jsonMap["comment"] = ctx.Comment.MarshalRest()
+	jsonMap["place-before"] = ctx.PlaceBefore.MarshalRest()
+
+	jsonBytes, err := json.Marshal(jsonMap)
+	if err != nil {
+		logging.CommonLog().Error("[FirewallRule] Error marshaling to json: %s\n", err)
+		return "", err
+	}
+
+	return string(jsonBytes), nil
 }

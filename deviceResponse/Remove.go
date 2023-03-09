@@ -43,7 +43,3 @@ func (ctx Remove) GetType() deviceCommon.DeviceCommandType {
 func (ctx Remove) GetRules() firewallCommon.FirewallRuleList {
 	return ctx.rules
 }
-
-func (ctx Remove) Rest(http.Response) {
-
-}

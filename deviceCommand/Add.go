@@ -38,6 +38,10 @@ func (ctx Add) GetType() deviceCommon.DeviceCommandType {
 	return ctx.cmdType
 }
 
+func (ctx Add) GetRule() firewallCommon.FirewallRule {
+	return ctx.firewallRule
+}
+
 func (ctx Add) Rest() (string, string, string, error) {
 	method := http.MethodPut
 	url := "/ip/firewall/filter"

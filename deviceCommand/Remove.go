@@ -24,6 +24,10 @@ func (ctx Remove) GetType() deviceCommon.DeviceCommandType {
 	return ctx.cmdType
 }
 
+func (ctx Remove) GetId() uint64 {
+	return ctx.ruleId
+}
+
 func (ctx Remove) Rest() (string, string, string, error) {
 	method := http.MethodDelete
 	url := "/ip/firewall/filter/*" + fmt.Sprintf("%X", ctx.ruleId)

@@ -1,8 +1,6 @@
 package deviceCommon
 
 import (
-	"net/http"
-
 	"github.com/altucor/http-knocker/firewallCommon"
 )
 
@@ -24,5 +22,4 @@ type IDeviceCommand interface {
 type IDeviceResponse interface {
 	GetType() DeviceCommandType
 	GetRules() firewallCommon.FirewallRuleList
-	Rest(http.Response)
 }

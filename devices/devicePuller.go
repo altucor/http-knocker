@@ -7,11 +7,82 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/altucor/http-knocker/deviceCommand"
 	"github.com/altucor/http-knocker/deviceCommon"
+	"github.com/altucor/http-knocker/firewallCommon"
+	"github.com/altucor/http-knocker/firewallCommon/firewallField"
 	"github.com/altucor/http-knocker/logging"
 
 	"github.com/gorilla/mux"
 )
+
+type virtualFirewall struct {
+	lastRuleId firewallField.Number
+	rules      []firewallCommon.FirewallRule
+}
+
+func (ctx *virtualFirewall) Add(cmd deviceCommand.Add) error {
+	// Should add new commands to pending list until they will be accepted by remote firewall
+	rule := cmd.GetRule()
+	rule.Id.SetValue(ctx.lastRuleId.GetValue())
+	ctx.rules = append(ctx.rules, rule)
+	return nil
+}
+
+func (ctx *virtualFirewall) Get(cmd deviceCommand.Get) ([]firewallCommon.FirewallRule, error) {
+	// Should return with accepted clients by remote firewall
+	return ctx.rules, nil
+}
+
+func (ctx *virtualFirewall) Remove(cmd deviceCommand.Remove) error {
+	// Should mark rules from accepted list as pending for removal, but not remove them
+	// Only really remove them when remote firewall will approve this
+	id := cmd.GetId()
+	ctx.rules = append(ctx.rules[:id], ctx.rules[id+1:]...)
+	return nil
+}
+
+/*
+Interface for web side:
+- GET - getLastUpdates
+	(optional "count" arg - how much entries to show)
+	give json with all pending changes
+	like Add Get Reomve commands with unique id's
+- POST - acceptUpdates
+	client notifies us about accepted/executed rules
+	client packet should have id's of successfully executed rules
+	after receiving this list virtual firewall should move add command to added clients
+- POST - resetState
+	Reset state for cases when we are in unsync with remote firewall
+- POST - pushInitialState
+	When httpKnocker becomes alive and remote
+	firewall have some rules from previous run.
+	It will allow to push initial state just to be in sync
+
+
+Structure of commands and responses:
+Generally all in JSON
+
+Response for getLastUpdates
+{
+	"commands": [
+		{
+			"id": 425462
+			"type": "add"
+			"data": { here info about ip port chain action... }
+		},
+		{
+			"id": 83452
+			"type": "remove"
+			"command": { here probably id of rule from which list? our or remote? }
+		}
+	]
+}
+
+
+
+
+*/
 
 type ConnectionPuller struct {
 	Username string `yaml:"username"`
@@ -25,6 +96,7 @@ type DevicePuller struct {
 	supportedProtocols []DeviceProtocol
 	server             *http.Server
 	router             *mux.Router
+	firewallState      virtualFirewall
 }
 
 func (ctx *DevicePuller) defaultHandler(w http.ResponseWriter, r *http.Request) {
@@ -90,7 +162,20 @@ func (ctx *DevicePuller) Stop() error {
 	return nil
 }
 
-func (ctx *DevicePuller) RunCommandWithReply(command deviceCommon.IDeviceCommand, proto DeviceProtocol) (deviceCommon.IDeviceResponse, error) {
+func (ctx *DevicePuller) RunCommandWithReply(
+	command deviceCommon.IDeviceCommand,
+	proto DeviceProtocol,
+) (deviceCommon.IDeviceResponse, error) {
+
+	switch command.GetType() {
+	case deviceCommon.DeviceCommandAdd:
+		ctx.firewallState.Add(command.(deviceCommand.Add))
+	case deviceCommon.DeviceCommandGet:
+		ctx.firewallState.Get(command.(deviceCommand.Get))
+	case deviceCommon.DeviceCommandRemove:
+		ctx.firewallState.Remove(command.(deviceCommand.Remove))
+	}
+
 	logging.CommonLog().Error("Not implemented")
 	return nil, errors.New("not Implemented")
 }

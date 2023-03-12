@@ -9,12 +9,8 @@ import (
 	"github.com/altucor/http-knocker/logging"
 )
 
-type FirewallRuleList struct {
-	firewallList []FirewallRule
-}
-
-func FirewallRuleListNewFromRest(response http.Response) (FirewallRuleList, error) {
-	frwList := FirewallRuleList{}
+func FirewallRuleListNewFromRest(response http.Response) ([]FirewallRule, error) {
+	frwList := make([]FirewallRule, 1)
 
 	body, err := ioutil.ReadAll(response.Body)
 	if err != nil {
@@ -46,7 +42,7 @@ func FirewallRuleListNewFromRest(response http.Response) (FirewallRuleList, erro
 			logging.CommonLog().Error("[FirewallRuleList] Error parsing firewall rule: %s\n", err)
 			return frwList, err
 		}
-		frwList.firewallList = append(frwList.firewallList, rule)
+		frwList = append(frwList, rule)
 	} else if strings.HasPrefix(string(body), "[") {
 		// Multiple items
 		var jsonArr []map[string]string
@@ -62,15 +58,15 @@ func FirewallRuleListNewFromRest(response http.Response) (FirewallRuleList, erro
 				logging.CommonLog().Error("[FirewallRuleList] Error parsing firewall rule: %s\n", err)
 				continue
 			}
-			frwList.firewallList = append(frwList.firewallList, rule)
+			frwList = append(frwList, rule)
 		}
 	}
 
 	return frwList, nil
 }
 
-func FirewallRuleListNewFromIpTables(response string) (FirewallRuleList, error) {
-	frwList := FirewallRuleList{}
+func FirewallRuleListNewFromIpTables(response string) ([]FirewallRule, error) {
+	frwList := make([]FirewallRule, 1)
 
 	if len(response) == 0 {
 		return frwList, nil
@@ -84,16 +80,8 @@ func FirewallRuleListNewFromIpTables(response string) (FirewallRuleList, error) 
 			return frwList, err
 		}
 		rule.Id.SetValue(uint64(index))
-		frwList.firewallList = append(frwList.firewallList, rule)
+		frwList = append(frwList, rule)
 	}
 
 	return frwList, nil
-}
-
-func (ctx FirewallRuleList) GetLength() int {
-	return len(ctx.firewallList)
-}
-
-func (ctx FirewallRuleList) GetList() []FirewallRule {
-	return ctx.firewallList
 }

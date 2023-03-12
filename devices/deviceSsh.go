@@ -142,8 +142,6 @@ func (ctx *DeviceSsh) RunCommandWithReply(command deviceCommon.IDeviceCommand, p
 		return deviceResponse.GetFromIpTables(output)
 	case deviceCommon.DeviceCommandRemove:
 		return deviceResponse.RemoveFromIpTables(output)
-	case deviceCommon.DeviceCommandMove:
-		return deviceResponse.MoveFromIpTables(output)
 	default:
 		return nil, errors.New("[deviceSsh] Unknown response type")
 	}

@@ -9,7 +9,7 @@ import (
 
 type Get struct {
 	cmdType deviceCommon.DeviceCommandType
-	rules   firewallCommon.FirewallRuleList
+	rules   []firewallCommon.FirewallRule
 }
 
 func GetFromRouterOsRest(response http.Response) (Get, error) {
@@ -38,10 +38,19 @@ func GetFromIpTables(response string) (Get, error) {
 	return frwResponse, nil
 }
 
+func GetFromRuleList(rules []firewallCommon.FirewallRule) (Get, error) {
+	frwResponse := Get{
+		cmdType: deviceCommon.DeviceCommandGet,
+		rules:   rules,
+	}
+
+	return frwResponse, nil
+}
+
 func (ctx Get) GetType() deviceCommon.DeviceCommandType {
 	return ctx.cmdType
 }
 
-func (ctx Get) GetRules() firewallCommon.FirewallRuleList {
+func (ctx Get) GetRules() []firewallCommon.FirewallRule {
 	return ctx.rules
 }

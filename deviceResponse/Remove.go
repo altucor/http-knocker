@@ -9,7 +9,7 @@ import (
 
 type Remove struct {
 	cmdType deviceCommon.DeviceCommandType
-	rules   firewallCommon.FirewallRuleList
+	rules   []firewallCommon.FirewallRule
 }
 
 func RemoveFromRouterOsRest(response http.Response) (Remove, error) {
@@ -40,6 +40,6 @@ func (ctx Remove) GetType() deviceCommon.DeviceCommandType {
 	return ctx.cmdType
 }
 
-func (ctx Remove) GetRules() firewallCommon.FirewallRuleList {
+func (ctx Remove) GetRules() []firewallCommon.FirewallRule {
 	return ctx.rules
 }

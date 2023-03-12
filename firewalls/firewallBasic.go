@@ -148,7 +148,7 @@ func (ctx *firewallBasic) AddClient(ip_addr firewallField.Address) error {
 		logging.CommonLog().Error("[FirewallBasic] AddClient cannot check is client exist: %s", err)
 		return err
 	}
-	for _, element := range frwRules.GetRules().GetList() {
+	for _, element := range frwRules.GetRules() {
 		// TODO: Fix deduplication for SSH
 		if element.SrcAddress == ip_addr {
 			_, err := ctx.device.RunCommandWithReply(deviceCommand.RemoveNew(element.Id.GetValue()), ctx.firewallCfg.Protocol)
@@ -159,10 +159,13 @@ func (ctx *firewallBasic) AddClient(ip_addr firewallField.Address) error {
 		}
 	}
 
-	dropRuleId, err := ctx.GetDropRuleId()
-	if err != nil {
-		logging.CommonLog().Error("[FirewallBasic] AddClient cannot find drop rule id %d", dropRuleId)
-		return err
+	var dropRuleId uint64 = 1
+	if ctx.device.GetType() != devices.DeviceTypePuller {
+		dropRuleId, err := ctx.GetDropRuleId()
+		if err != nil {
+			logging.CommonLog().Errorf("[FirewallBasic] AddClient cannot find drop rule id %d", dropRuleId)
+			return err
+		}
 	}
 
 	comment, err := FirewallCommentNew(
@@ -200,7 +203,7 @@ func (ctx *firewallBasic) FindRuleIdByComment(comment string) (uint64, error) {
 	if err != nil {
 		return 0, err
 	}
-	for _, element := range frwRules.GetRules().GetList() {
+	for _, element := range frwRules.GetRules() {
 		if element.Comment.GetValue() == comment {
 			return element.Id.GetValue(), nil
 		}
@@ -219,7 +222,7 @@ func (ctx *firewallBasic) IsClientWithAddrExist(ip_addr netip.Addr) (bool, error
 	if err != nil {
 		return false, err
 	}
-	for _, element := range frwRules.GetRules().GetList() {
+	for _, element := range frwRules.GetRules() {
 		if element.SrcAddress.GetValue() == ip_addr {
 			return true, nil
 		}
@@ -234,7 +237,7 @@ func (ctx *firewallBasic) GetAddedClientIdsWithTimings() ([]ClientAdded, error) 
 		return clientIds, err
 	}
 
-	for _, element := range frwRules.GetRules().GetList() {
+	for _, element := range frwRules.GetRules() {
 		if element.Comment.GetValue() != "" {
 			comment, err := FirewallCommentNewFromString(element.Comment.GetValue(), ctx.delimiterKey)
 			if err != nil {
@@ -283,13 +286,13 @@ func (ctx *firewallBasic) InitListOfAddedClients() {
 }
 
 func ClientsWatchdog(firewall *firewallBasic) {
-	for true {
+	for {
 		if firewall.needUpdateClientsList {
 			firewall.needUpdateClientsList = false
 			firewall.InitListOfAddedClients()
 		}
 		time.Sleep(time.Second)
-		logging.CommonLog().Infof("[firewallBasic] ClientsWatchdog worked %d", uint64(time.Now().Unix()))
+		logging.CommonLog().Debugf("[firewallBasic] ClientsWatchdog worked %d", uint64(time.Now().Unix()))
 		firewall.addedClients.mu.Lock()
 		clientsLength := len(firewall.addedClients.clients)
 		firewall.addedClients.mu.Unlock()

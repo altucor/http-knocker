@@ -12,6 +12,7 @@ import (
 
 	"github.com/altucor/http-knocker/deviceCommand"
 	"github.com/altucor/http-knocker/deviceCommon"
+	"github.com/altucor/http-knocker/deviceResponse"
 	"github.com/altucor/http-knocker/firewallCommon"
 	"github.com/altucor/http-knocker/logging"
 
@@ -35,7 +36,7 @@ type virtualFirewall struct {
 	rules []virtualFirewallRule
 }
 
-func (ctx *virtualFirewall) Add(cmd deviceCommand.Add) error {
+func (ctx *virtualFirewall) Add(cmd deviceCommand.Add) (deviceResponse.Add, error) {
 	// Should add new commands to pending list until they will be accepted by remote firewall
 	rule := cmd.GetRule()
 	rule.Id.SetValue(uint64(crc32.ChecksumIEEE([]byte(rule.Comment.GetString()))))
@@ -43,10 +44,10 @@ func (ctx *virtualFirewall) Add(cmd deviceCommand.Add) error {
 		rule:  rule,
 		state: VFR_STATE_PENDING_ADD,
 	})
-	return nil
+	return deviceResponse.Add{}, nil
 }
 
-func (ctx *virtualFirewall) Get(cmd deviceCommand.Get) ([]firewallCommon.FirewallRule, error) {
+func (ctx *virtualFirewall) Get(cmd deviceCommand.Get) (deviceResponse.Get, error) {
 	// Should return with accepted clients by remote firewall
 	var rules []firewallCommon.FirewallRule
 	for _, item := range ctx.rules {
@@ -54,10 +55,10 @@ func (ctx *virtualFirewall) Get(cmd deviceCommand.Get) ([]firewallCommon.Firewal
 			rules = append(rules, item.rule)
 		}
 	}
-	return rules, nil
+	return deviceResponse.GetFromRuleList(rules)
 }
 
-func (ctx *virtualFirewall) Remove(cmd deviceCommand.Remove) error {
+func (ctx *virtualFirewall) Remove(cmd deviceCommand.Remove) (deviceResponse.Remove, error) {
 	// Should mark rules from accepted list as pending for removal, but not remove them
 	// Only really remove them when remote firewall will approve this
 	id := cmd.GetId()
@@ -68,7 +69,7 @@ func (ctx *virtualFirewall) Remove(cmd deviceCommand.Remove) error {
 				ctx.rules[iter].state = VFR_STATE_PENDING_REMOVE
 			case VFR_STATE_PENDING_ADD:
 				ctx.rules = append(ctx.rules[:iter], ctx.rules[iter+1:]...)
-				return nil
+				return deviceResponse.Remove{}, nil
 			case VFR_STATE_PENDING_REMOVE:
 				// do nothing
 			default:
@@ -76,28 +77,19 @@ func (ctx *virtualFirewall) Remove(cmd deviceCommand.Remove) error {
 			}
 		}
 	}
-	return nil
+	return deviceResponse.Remove{}, nil
 }
 
 func (ctx *virtualFirewall) getLastUpdates(count uint64) (string, error) {
 	// Here we respond only with pending changes for remote firewall
-	var rules []string
-	var counter uint64 = 0
+	var rules []map[string]string
 	for _, item := range ctx.rules {
-		if counter >= count {
+		if count != 0 && uint64(len(rules)) >= count {
 			break
 		}
 		switch item.state {
-		case VFR_STATE_PENDING_ADD:
-		case VFR_STATE_PENDING_REMOVE:
-			// here convert each rule to json
-			counter += 1
-			jsoned, err := item.rule.ToJson()
-			if err != nil {
-				return "", err
-			} else {
-				rules = append(rules, jsoned)
-			}
+		case VFR_STATE_PENDING_ADD, VFR_STATE_PENDING_REMOVE:
+			rules = append(rules, item.rule.ToMap())
 		}
 	}
 
@@ -213,6 +205,21 @@ func (ctx *DevicePuller) getLastUpdates(w http.ResponseWriter, r *http.Request) 
 func (ctx *DevicePuller) acceptUpdates(w http.ResponseWriter, r *http.Request) {
 	logging.CommonLog().Info("[devicePuller] called acceptUpdates")
 	// Here mark rules with accepted statuses
+	if err := r.ParseForm(); err != nil {
+		logging.CommonLog().Debugf("ParseForm() err: %v", err)
+		return
+	}
+	logging.CommonLog().Debugf("Post form: %v", r.PostForm)
+	logging.CommonLog().Debugf("Form: %v", r.Form)
+	data := r.FormValue("accepted_rules")
+	logging.CommonLog().Debugf("Form data: %s", data)
+	var acceptedRules []string
+	err := json.NewDecoder(r.Body).Decode(&acceptedRules)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	logging.CommonLog().Debugf("Accepted rules: %v", acceptedRules)
 }
 
 func http_not_found_handler(w http.ResponseWriter, r *http.Request) {
@@ -239,9 +246,10 @@ func DevicePullerNew(cfg DeviceConnectionDesc) *DevicePuller {
 		},
 		router: mux.NewRouter(),
 	}
-	ctx.router.HandleFunc("/", http_not_found_handler)
-	ctx.router.HandleFunc(ctx.config.Endpoint+"getLastUpdates", ctx.getLastUpdates)
-	ctx.router.HandleFunc(ctx.config.Endpoint+"acceptUpdates", ctx.acceptUpdates)
+	ctx.router.NotFoundHandler = http.HandlerFunc(http_not_found_handler)
+	pullerRouter := ctx.router.PathPrefix(ctx.config.Endpoint).Subrouter()
+	pullerRouter.HandleFunc("/getLastUpdates", ctx.getLastUpdates).Methods("GET")
+	pullerRouter.HandleFunc("/acceptUpdates", ctx.acceptUpdates).Methods("POST")
 	return ctx
 }
 
@@ -277,13 +285,12 @@ func (ctx *DevicePuller) RunCommandWithReply(
 
 	switch command.GetType() {
 	case deviceCommon.DeviceCommandAdd:
-		ctx.firewallState.Add(command.(deviceCommand.Add))
+		return ctx.firewallState.Add(command.(deviceCommand.Add))
 	case deviceCommon.DeviceCommandGet:
-		ctx.firewallState.Get(command.(deviceCommand.Get))
+		return ctx.firewallState.Get(command.(deviceCommand.Get))
 	case deviceCommon.DeviceCommandRemove:
-		ctx.firewallState.Remove(command.(deviceCommand.Remove))
+		return ctx.firewallState.Remove(command.(deviceCommand.Remove))
 	}
 
-	logging.CommonLog().Error("Not implemented")
-	return nil, errors.New("not Implemented")
+	return nil, errors.New("invalid command type")
 }

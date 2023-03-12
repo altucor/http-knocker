@@ -9,7 +9,6 @@ type DeviceCommandType string
 const (
 	DeviceCommandGet    DeviceCommandType = "get"
 	DeviceCommandAdd    DeviceCommandType = "add"
-	DeviceCommandMove   DeviceCommandType = "move"
 	DeviceCommandRemove DeviceCommandType = "remove"
 )
 
@@ -21,5 +20,5 @@ type IDeviceCommand interface {
 
 type IDeviceResponse interface {
 	GetType() DeviceCommandType
-	GetRules() firewallCommon.FirewallRuleList
+	GetRules() []firewallCommon.FirewallRule
 }

@@ -9,7 +9,7 @@ import (
 
 type Add struct {
 	cmdType deviceCommon.DeviceCommandType
-	rules   firewallCommon.FirewallRuleList
+	rules   []firewallCommon.FirewallRule
 }
 
 func AddFromRouterOsRest(response http.Response) (Add, error) {
@@ -40,6 +40,6 @@ func (ctx Add) GetType() deviceCommon.DeviceCommandType {
 	return ctx.cmdType
 }
 
-func (ctx Add) GetRules() firewallCommon.FirewallRuleList {
+func (ctx Add) GetRules() []firewallCommon.FirewallRule {
 	return ctx.rules
 }

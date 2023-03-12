@@ -136,25 +136,19 @@ func (ctx *FirewallRule) ToIpTables() (string, error) {
 	return result, nil
 }
 
-func (ctx *FirewallRule) ToJson() (string, error) {
-	jsonMap := make(map[string]string)
+func (ctx *FirewallRule) ToMap() map[string]string {
+	ruleMap := make(map[string]string)
 	if ctx.Id.GetValue() != RULE_ID_INVALID {
-		jsonMap["id"] = ctx.Id.MarshalRest()
+		ruleMap["id"] = ctx.Id.GetString()
 	}
-	jsonMap["action"] = ctx.Action.MarshalRest()
-	jsonMap["chain"] = ctx.Chain.MarshalRest()
-	jsonMap["disabled"] = ctx.Disabled.MarshalRest()
-	jsonMap["protocol"] = ctx.Protocol.MarshalRest()
-	jsonMap["src-address"] = ctx.SrcAddress.MarshalRest()
-	jsonMap["dst-port"] = ctx.DstPort.MarshalRest()
-	jsonMap["comment"] = ctx.Comment.MarshalRest()
-	jsonMap["place-before"] = ctx.PlaceBefore.MarshalRest()
+	ruleMap["action"] = ctx.Action.GetString()
+	ruleMap["chain"] = ctx.Chain.GetString()
+	ruleMap["disabled"] = ctx.Disabled.GetString()
+	ruleMap["protocol"] = ctx.Protocol.GetString()
+	ruleMap["src-address"] = ctx.SrcAddress.GetString()
+	ruleMap["dst-port"] = ctx.DstPort.GetString()
+	ruleMap["comment"] = ctx.Comment.GetString()
+	ruleMap["place-before"] = ctx.PlaceBefore.GetString()
 
-	jsonBytes, err := json.Marshal(jsonMap)
-	if err != nil {
-		logging.CommonLog().Error("[FirewallRule] Error marshaling to json: %s\n", err)
-		return "", err
-	}
-
-	return string(jsonBytes), nil
+	return ruleMap
 }

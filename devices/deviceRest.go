@@ -108,8 +108,6 @@ func (ctx *DeviceRest) RunCommandWithReply(command deviceCommon.IDeviceCommand, 
 		return deviceResponse.GetFromRouterOsRest(httpResponse)
 	case deviceCommon.DeviceCommandRemove:
 		return deviceResponse.RemoveFromRouterOsRest(httpResponse)
-	case deviceCommon.DeviceCommandMove:
-		return deviceResponse.MoveFromRouterOsRest(httpResponse)
 	default:
 		logging.CommonLog().Error("[deviceRest] Unknown response type")
 		return nil, errors.New("[deviceRest] Unknown response type")

@@ -1,34 +1,35 @@
 import time
 import json
-import urllib
-import http.client
+import requests
 
 
 class HttpKnockerPullerClient:
     def __init__(self, host: str, port: int, base_prefix: str):
-        self.__host = host
-        self.__port = port
-        self.__base_prefix = base_prefix
-
-    def do_request(self, scheme: str, request: str, body, headers):
-        connection = http.client.HTTPConnection(self.__host + ":" + str(self.__port))
-        connection.request(scheme, self.__base_prefix + request, body, headers)
-        response = connection.getresponse()
-        print("Status: {} and reason: {}".format(response.status, response.reason))
-        body = response.read()
-        connection.close()
-        return body
+        self.__base = "http://" + host + ":" + str(port) + base_prefix
 
     def get_last_updates(self):
-        response = self.do_request("GET", "/getLastUpdates", "", {})
-        decoded = json.loads(response)
+        r = requests.get(self.__base + "/getLastUpdates")
+        print(f"Status code: {r.status_code}")
+        decoded = json.loads(r.text)
         return decoded
 
     def accept_updates(self, accepted_rule_ids):
-        headers = {'Content-type': 'application/json'}
-        body = json.dumps({'accepted_rules': accepted_rule_ids})
-        print(body)
-        response = self.do_request("POST", "/acceptUpdates", body, headers)
+        print(accepted_rule_ids)
+        r = requests.post(
+            self.__base + "/acceptUpdates", 
+            data={
+                'accepted_rules': json.dumps(accepted_rule_ids)
+        })
+        r.text
+
+class IpTablesExecutor:
+    def __init__(self, rule):
+        self.__rule = rule
+        pass
+
+    def execute(self):
+        print(f"Executed rule: {self.__rule}")
+        return True
 
 def main():
     httpKnocker = HttpKnockerPullerClient("127.0.0.1", 8001, "/puller/test")
@@ -37,10 +38,11 @@ def main():
         time.sleep(1)
         accepted_rules = []
         rules = httpKnocker.get_last_updates()
-        # print(json.loads(rules[0]))
+        print(f"Rules arr size: {len(rules)}")
         for rule in rules:
-            print(rule)
-            accepted_rules.append(rule["id"])
+            # If rule successfully executed then add it's id to accepted list
+            if IpTablesExecutor(rule).execute():
+                accepted_rules.append(rule["id"])
         httpKnocker.accept_updates(accepted_rules)
 
 

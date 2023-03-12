@@ -101,6 +101,18 @@ func (ctx *virtualFirewall) getLastUpdates(count uint64) (string, error) {
 	return string(jsonBytes), nil
 }
 
+func (ctx *virtualFirewall) acceptUpdates(acceptedRules []string) error {
+	for _, acceptedRule := range acceptedRules {
+		for i, item := range ctx.rules {
+			if item.rule.Id.GetString() == acceptedRule && item.state == VFR_STATE_PENDING_ADD {
+				ctx.rules[i].state = VFR_STATE_ADDED
+				break
+			}
+		}
+	}
+	return nil
+}
+
 /*
 Interface for web side:
 - GET - getLastUpdates
@@ -209,17 +221,25 @@ func (ctx *DevicePuller) acceptUpdates(w http.ResponseWriter, r *http.Request) {
 		logging.CommonLog().Debugf("ParseForm() err: %v", err)
 		return
 	}
-	logging.CommonLog().Debugf("Post form: %v", r.PostForm)
-	logging.CommonLog().Debugf("Form: %v", r.Form)
-	data := r.FormValue("accepted_rules")
-	logging.CommonLog().Debugf("Form data: %s", data)
+	// logging.CommonLog().Debugf("Post form: %v", r.PostForm)
+	// logging.CommonLog().Debugf("Form: %v", r.Form)
+	accepted_rules := r.FormValue("accepted_rules")
+	logging.CommonLog().Debugf("Accepted rules: %s", accepted_rules)
 	var acceptedRules []string
-	err := json.NewDecoder(r.Body).Decode(&acceptedRules)
+	err := json.Unmarshal([]byte(r.FormValue("accepted_rules")), &acceptedRules)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 	logging.CommonLog().Debugf("Accepted rules: %v", acceptedRules)
+	err = ctx.firewallState.acceptUpdates(acceptedRules)
+	if err != nil {
+		logging.CommonLog().Error(err)
+		w.WriteHeader(http.StatusServiceUnavailable)
+		fmt.Fprintf(w, "500\n")
+		return
+	}
+	w.WriteHeader(http.StatusOK)
 }
 
 func http_not_found_handler(w http.ResponseWriter, r *http.Request) {

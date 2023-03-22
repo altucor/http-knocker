@@ -34,6 +34,13 @@ type virtualFirewallCmd struct {
 	state vfwc
 }
 
+func (ctx virtualFirewallCmd) toMap() map[string]interface{} {
+	vfcmd := make(map[string]interface{})
+	vfcmd["id"] = ctx.id
+	vfcmd["command"] = ctx.cmd.ToMap()
+	return vfcmd
+}
+
 type virtualFirewall struct {
 	mu    sync.Mutex
 	cmds  []virtualFirewallCmd
@@ -64,7 +71,6 @@ func (ctx *virtualFirewall) Add(cmd deviceCommand.Add) (deviceResponse.Add, erro
 		cmd:   cmd,
 		state: VFWC_STATE_PENDING_ADD,
 	})
-
 	return deviceResponse.Add{}, nil
 }
 
@@ -72,7 +78,6 @@ func (ctx *virtualFirewall) Get(cmd deviceCommand.Get) (deviceResponse.Get, erro
 	// Should return with list of accepted virtual firewall rules
 	ctx.mu.Lock()
 	defer ctx.mu.Unlock()
-
 	return deviceResponse.GetFromRuleList(ctx.rules)
 }
 
@@ -98,7 +103,7 @@ func (ctx *virtualFirewall) getLastUpdates(count uint64) (string, error) {
 		if count != 0 && uint64(len(cmds)) >= count {
 			break
 		}
-		cmds = append(cmds, item.cmd.ToMap())
+		cmds = append(cmds, item.toMap())
 	}
 	jsonBytes, err := json.Marshal(cmds)
 	if err != nil {
@@ -113,20 +118,21 @@ func (ctx *virtualFirewall) acceptUpdates(acceptedRules []string) error {
 	defer ctx.mu.Unlock()
 	for _, acceptedRule := range acceptedRules {
 		for i, item := range ctx.cmds {
-			switch item.cmd.GetType() {
-			case deviceCommon.DeviceCommandAdd:
-				break
-			case deviceCommon.DeviceCommandGet:
-				break
-			case deviceCommon.DeviceCommandRemove:
+			if item.id == acceptedRule {
+				// TODO: Here remove cmd and break cycle
+				ctx.cmds = append(ctx.cmds[:i], ctx.cmds[i+1:]...)
 				break
 			}
-			// if item.rule.Id.GetString() == acceptedRule && item.state == VFWC_STATE_PENDING_ADD {
-			// 	ctx.cmds[i].state = VFWC_STATE_ADDED
-			// 	break
-			// }
 		}
 	}
+	return nil
+}
+
+func (ctx *virtualFirewall) pushRuleSet(rules []firewallCommon.FirewallRule) error {
+	ctx.mu.Lock()
+	defer ctx.mu.Unlock()
+	// TODO: Here overwrite rule set with rules from remote firewall
+	ctx.rules = rules
 	return nil
 }
 
@@ -238,10 +244,8 @@ func (ctx *DevicePuller) acceptUpdates(w http.ResponseWriter, r *http.Request) {
 		logging.CommonLog().Debugf("ParseForm() err: %v", err)
 		return
 	}
-	// logging.CommonLog().Debugf("Post form: %v", r.PostForm)
-	// logging.CommonLog().Debugf("Form: %v", r.Form)
-	accepted_rules := r.FormValue("accepted_rules")
-	logging.CommonLog().Debugf("Accepted rules: %s", accepted_rules)
+	acceptedRulesJson := r.FormValue("accepted_rules")
+	logging.CommonLog().Debugf("Accepted rules: %s", acceptedRulesJson)
 	var acceptedRules []string
 	err := json.Unmarshal([]byte(r.FormValue("accepted_rules")), &acceptedRules)
 	if err != nil {
@@ -257,6 +261,33 @@ func (ctx *DevicePuller) acceptUpdates(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.WriteHeader(http.StatusOK)
+}
+
+func (ctx *DevicePuller) pushRulesSet(w http.ResponseWriter, r *http.Request) {
+	logging.CommonLog().Info("[devicePuller] called pushRulesSet")
+	if err := r.ParseForm(); err != nil {
+		logging.CommonLog().Debugf("ParseForm() err: %v", err)
+		return
+	}
+	frwRulesJson := r.FormValue("rules")
+	logging.CommonLog().Debugf("Frw rules: %s", frwRulesJson)
+	var frwRules []firewallCommon.FirewallRule
+	err := json.Unmarshal([]byte(r.FormValue("rules")), &frwRules)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	logging.CommonLog().Debugf("Frw rules: %s", frwRules)
+	err = ctx.firewallState.pushRuleSet(frwRules)
+	if err != nil {
+		logging.CommonLog().Error(err)
+		w.WriteHeader(http.StatusServiceUnavailable)
+		fmt.Fprintf(w, "500\n")
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+
+	return
 }
 
 func http_not_found_handler(w http.ResponseWriter, r *http.Request) {
@@ -287,15 +318,8 @@ func DevicePullerNew(cfg DeviceConnectionDesc) *DevicePuller {
 	pullerRouter := ctx.router.PathPrefix(ctx.config.Endpoint).Subrouter()
 	pullerRouter.HandleFunc("/getLastUpdates", ctx.getLastUpdates).Methods("GET")
 	pullerRouter.HandleFunc("/acceptUpdates", ctx.acceptUpdates).Methods("POST")
+	pullerRouter.HandleFunc("/pushRulesSet", ctx.pushRulesSet).Methods("POST")
 	return ctx
-}
-
-func (ctx *DevicePuller) AddVirtualDropRuleWithComment(comment string) {
-	ctx.firewallState.mu.Lock()
-	defer ctx.firewallState.mu.Unlock()
-	rule := firewallCommon.FirewallRuleNew()
-	rule.Comment.SetValue(comment)
-	ctx.firewallState.rules = append(ctx.firewallState.rules, rule)
 }
 
 func (ctx *DevicePuller) GetSupportedProtocols() []DeviceProtocol {

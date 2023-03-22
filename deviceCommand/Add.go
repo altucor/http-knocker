@@ -18,7 +18,7 @@ type Add struct {
 func AddNew(clientAddr netip.Addr, port uint16, protocol firewallField.ProtocolType, comment string, placeBefore uint64) Add {
 	frwRule := firewallCommon.FirewallRuleNew()
 	frwRule.Id.SetValue(firewallCommon.RULE_ID_INVALID)
-	frwRule.Action.SetValue(firewallField.ACCEPT)
+	frwRule.Action.SetValue(firewallField.ACTION_ACCEPT)
 	frwRule.Chain.SetValue(firewallField.INPUT)
 	frwRule.Disabled.SetValue(false)
 	frwRule.Protocol.SetValue(protocol)

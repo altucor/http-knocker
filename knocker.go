@@ -41,11 +41,6 @@ func getEndpointAssociatedWithFirewall(cfg *Configuration, firewallName string) 
 func knockInitDevice(firewallCfg common.FirewallCfg, device devices.IDevice, endpoint common.EndpointCfg) *Knock {
 	var knockObject *Knock = nil
 
-	if device.GetType() == devices.DeviceTypePuller {
-		// TODO: add virtual firewall drop rule
-		device.(*devices.DevicePuller).AddVirtualDropRuleWithComment(firewallCfg.DropRuleComment)
-	}
-
 	switch firewallCfg.FirewallType.GetValue() {
 	case firewallCommon.FIREWALL_BASIC:
 		knockObject = KnockNew(

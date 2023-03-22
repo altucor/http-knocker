@@ -13,6 +13,7 @@ const (
 )
 
 type IDeviceCommand interface {
+	ToMap() map[string]interface{}
 	GetType() DeviceCommandType
 	Rest() (string, string, string, error) // Return: method, url, body
 	IpTables() (string, error)

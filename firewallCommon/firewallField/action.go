@@ -9,20 +9,21 @@ type ActionType uint8
 
 const (
 	ACTION_INVALID ActionType = 0xFF
-	ACCEPT         ActionType = 0
-	DROP           ActionType = 1
-	REJECT         ActionType = 3
-	JUMP           ActionType = 4
-	LOG            ActionType = 5
+	ACTION_ACCEPT  ActionType = 0
+	ACTION_DROP    ActionType = 1
+	ACTION_REJECT  ActionType = 3
+	ACTION_JUMP    ActionType = 4
+	ACTION_LOG     ActionType = 5
 )
 
 var (
 	actionMap = map[ActionType]string{
 		ACTION_INVALID: "<INVALID>",
-		ACCEPT:         "accept",
-		DROP:           "drop",
-		JUMP:           "jump",
-		LOG:            "log",
+		ACTION_ACCEPT:  "accept",
+		ACTION_DROP:    "drop",
+		ACTION_REJECT:  "reject",
+		ACTION_JUMP:    "jump",
+		ACTION_LOG:     "log",
 	}
 )
 

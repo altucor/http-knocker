@@ -17,6 +17,12 @@ func GetNew() Get {
 	return cmd
 }
 
+func (ctx Get) ToMap() map[string]interface{} {
+	cmd := make(map[string]interface{})
+	cmd["type"] = string(ctx.cmdType)
+	return cmd
+}
+
 func (ctx Get) GetType() deviceCommon.DeviceCommandType {
 	return ctx.cmdType
 }

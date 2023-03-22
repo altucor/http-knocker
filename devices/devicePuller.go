@@ -2,12 +2,13 @@ package devices
 
 import (
 	"context"
+	"crypto/sha1"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"hash/crc32"
 	"net/http"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/altucor/http-knocker/deviceCommand"
@@ -19,81 +20,87 @@ import (
 	"github.com/gorilla/mux"
 )
 
-type vfrs uint16
+type vfwc uint16
 
 const (
-	VFR_STATE_PENDING_ADD    vfrs = 1
-	VFR_STATE_ADDED          vfrs = 2
-	VFR_STATE_PENDING_REMOVE vfrs = 3
+	VFWC_STATE_PENDING_ADD    vfwc = 1
+	VFWC_STATE_ADDED          vfwc = 2
+	VFWC_STATE_PENDING_REMOVE vfwc = 3
 )
 
-type virtualFirewallRule struct {
-	rule  firewallCommon.FirewallRule
-	state vfrs
+type virtualFirewallCmd struct {
+	id    string
+	cmd   deviceCommon.IDeviceCommand
+	state vfwc
 }
 
 type virtualFirewall struct {
-	rules []virtualFirewallRule
+	mu    sync.Mutex
+	cmds  []virtualFirewallCmd
+	rules []firewallCommon.FirewallRule
+}
+
+/*
+Important:
+Instead of storing rules in to virtual firewall.
+Save actual commands in virtual firewall state.
+Because communication with remote client should be with commands, not rules
+Remote client should know how to interpret commands in rules
+and how to execute commands for custom firewall
+*/
+
+func generateCmdId() string {
+	h := sha1.New()
+	h.Write([]byte(time.Now().String()))
+	return fmt.Sprintf("%x", h.Sum(nil))
 }
 
 func (ctx *virtualFirewall) Add(cmd deviceCommand.Add) (deviceResponse.Add, error) {
 	// Should add new commands to pending list until they will be accepted by remote firewall
-	rule := cmd.GetRule()
-	rule.Id.SetValue(uint64(crc32.ChecksumIEEE([]byte(rule.Comment.GetString()))))
-	ctx.rules = append(ctx.rules, virtualFirewallRule{
-		rule:  rule,
-		state: VFR_STATE_PENDING_ADD,
+	ctx.mu.Lock()
+	defer ctx.mu.Unlock()
+	ctx.cmds = append(ctx.cmds, virtualFirewallCmd{
+		id:    generateCmdId(),
+		cmd:   cmd,
+		state: VFWC_STATE_PENDING_ADD,
 	})
+
 	return deviceResponse.Add{}, nil
 }
 
 func (ctx *virtualFirewall) Get(cmd deviceCommand.Get) (deviceResponse.Get, error) {
-	// Should return with accepted clients by remote firewall
-	var rules []firewallCommon.FirewallRule
-	for _, item := range ctx.rules {
-		if item.state == VFR_STATE_ADDED {
-			rules = append(rules, item.rule)
-		}
-	}
-	return deviceResponse.GetFromRuleList(rules)
+	// Should return with list of accepted virtual firewall rules
+	ctx.mu.Lock()
+	defer ctx.mu.Unlock()
+
+	return deviceResponse.GetFromRuleList(ctx.rules)
 }
 
 func (ctx *virtualFirewall) Remove(cmd deviceCommand.Remove) (deviceResponse.Remove, error) {
 	// Should mark rules from accepted list as pending for removal, but not remove them
 	// Only really remove them when remote firewall will approve this
-	id := cmd.GetId()
-	for iter, item := range ctx.rules {
-		if item.rule.Id.GetValue() == id {
-			switch item.state {
-			case VFR_STATE_ADDED:
-				ctx.rules[iter].state = VFR_STATE_PENDING_REMOVE
-			case VFR_STATE_PENDING_ADD:
-				ctx.rules = append(ctx.rules[:iter], ctx.rules[iter+1:]...)
-				return deviceResponse.Remove{}, nil
-			case VFR_STATE_PENDING_REMOVE:
-				// do nothing
-			default:
-				logging.CommonLog().Debug("Default case called what to do?")
-			}
-		}
-	}
+	ctx.mu.Lock()
+	defer ctx.mu.Unlock()
+	ctx.cmds = append(ctx.cmds, virtualFirewallCmd{
+		id:    generateCmdId(),
+		cmd:   cmd,
+		state: VFWC_STATE_PENDING_ADD,
+	})
 	return deviceResponse.Remove{}, nil
 }
 
 func (ctx *virtualFirewall) getLastUpdates(count uint64) (string, error) {
 	// Here we respond only with pending changes for remote firewall
-	var rules []map[string]string
-	for _, item := range ctx.rules {
-		if count != 0 && uint64(len(rules)) >= count {
+	ctx.mu.Lock()
+	defer ctx.mu.Unlock()
+	var cmds []map[string]interface{}
+	for _, item := range ctx.cmds {
+		if count != 0 && uint64(len(cmds)) >= count {
 			break
 		}
-		switch item.state {
-		case VFR_STATE_PENDING_ADD, VFR_STATE_PENDING_REMOVE:
-			rules = append(rules, item.rule.ToMap())
-		}
+		cmds = append(cmds, item.cmd.ToMap())
 	}
-
-	jsonBytes, err := json.Marshal(rules)
+	jsonBytes, err := json.Marshal(cmds)
 	if err != nil {
 		return "", err
 	}
@@ -102,12 +109,22 @@ func (ctx *virtualFirewall) getLastUpdates(count uint64) (string, error) {
 }
 
 func (ctx *virtualFirewall) acceptUpdates(acceptedRules []string) error {
+	ctx.mu.Lock()
+	defer ctx.mu.Unlock()
 	for _, acceptedRule := range acceptedRules {
-		for i, item := range ctx.rules {
-			if item.rule.Id.GetString() == acceptedRule && item.state == VFR_STATE_PENDING_ADD {
-				ctx.rules[i].state = VFR_STATE_ADDED
+		for i, item := range ctx.cmds {
+			switch item.cmd.GetType() {
+			case deviceCommon.DeviceCommandAdd:
+				break
+			case deviceCommon.DeviceCommandGet:
+				break
+			case deviceCommon.DeviceCommandRemove:
 				break
 			}
+			// if item.rule.Id.GetString() == acceptedRule && item.state == VFWC_STATE_PENDING_ADD {
+			// 	ctx.cmds[i].state = VFWC_STATE_ADDED
+			// 	break
+			// }
 		}
 	}
 	return nil
@@ -271,6 +288,14 @@ func DevicePullerNew(cfg DeviceConnectionDesc) *DevicePuller {
 	pullerRouter.HandleFunc("/getLastUpdates", ctx.getLastUpdates).Methods("GET")
 	pullerRouter.HandleFunc("/acceptUpdates", ctx.acceptUpdates).Methods("POST")
 	return ctx
+}
+
+func (ctx *DevicePuller) AddVirtualDropRuleWithComment(comment string) {
+	ctx.firewallState.mu.Lock()
+	defer ctx.firewallState.mu.Unlock()
+	rule := firewallCommon.FirewallRuleNew()
+	rule.Comment.SetValue(comment)
+	ctx.firewallState.rules = append(ctx.firewallState.rules, rule)
 }
 
 func (ctx *DevicePuller) GetSupportedProtocols() []DeviceProtocol {

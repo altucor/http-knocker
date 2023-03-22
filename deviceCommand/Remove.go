@@ -20,6 +20,13 @@ func RemoveNew(id uint64) Remove {
 	return frw
 }
 
+func (ctx Remove) ToMap() map[string]interface{} {
+	cmd := make(map[string]interface{})
+	cmd["type"] = string(ctx.cmdType)
+	cmd["id"] = ctx.ruleId
+	return cmd
+}
+
 func (ctx Remove) GetType() deviceCommon.DeviceCommandType {
 	return ctx.cmdType
 }

@@ -11,6 +11,7 @@ class HttpKnockerPullerClient:
         r = requests.get(self.__base + "/getLastUpdates")
         print(f"Status code: {r.status_code}")
         decoded = json.loads(r.text)
+        print(f"decoded: {decoded}")
         return decoded
 
     def accept_updates(self, accepted_rule_ids):
@@ -38,6 +39,8 @@ def main():
         time.sleep(1)
         accepted_rules = []
         rules = httpKnocker.get_last_updates()
+        if rules is None:
+            continue
         print(f"Rules arr size: {len(rules)}")
         for rule in rules:
             # If rule successfully executed then add it's id to accepted list

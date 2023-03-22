@@ -34,6 +34,13 @@ func AddNew(clientAddr netip.Addr, port uint16, protocol firewallField.ProtocolT
 	return cmd
 }
 
+func (ctx Add) ToMap() map[string]interface{} {
+	cmd := make(map[string]interface{})
+	cmd["type"] = string(ctx.cmdType)
+	cmd["rule"] = ctx.firewallRule.ToMap()
+	return cmd
+}
+
 func (ctx Add) GetType() deviceCommon.DeviceCommandType {
 	return ctx.cmdType
 }

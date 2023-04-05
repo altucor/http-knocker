@@ -21,21 +21,9 @@ func (ctx *Port) TryInitFromString(param string) error {
 	return nil
 }
 
-func (ctx *Port) TryInitFromRest(param string) error {
-	return ctx.TryInitFromString(param)
-}
-
-func (ctx *Port) TryInitFromIpTables(param string) error {
-	return ctx.TryInitFromString(param)
-}
-
 func PortTypeFromString(idString string) (Port, error) {
 	id := Port{}
 	return id, id.TryInitFromString(idString)
-}
-
-func PortTypeFromValue(value uint16) (Port, error) {
-	return Port{value: value}, nil
 }
 
 func (ctx *Port) SetValue(value uint16) {
@@ -48,12 +36,4 @@ func (ctx Port) GetValue() uint16 {
 
 func (ctx Port) GetString() string {
 	return fmt.Sprintf("%d", ctx.value)
-}
-
-func (ctx Port) MarshalRest() string {
-	return fmt.Sprintf("%d", ctx.value)
-}
-
-func (ctx Port) MarshalIpTables() string {
-	return ctx.GetString()
 }

@@ -40,15 +40,7 @@ func (ctx *Action) TryInitFromString(param string) error {
 		}
 	}
 	ctx.value = ACTION_INVALID
-	return errors.New("Cannot init from string")
-}
-
-func (ctx *Action) TryInitFromRest(param string) error {
-	return ctx.TryInitFromString(param)
-}
-
-func (ctx *Action) TryInitFromIpTables(param string) error {
-	return ctx.TryInitFromString(param)
+	return errors.New("cannot init from string")
 }
 
 func ActionTypeFromString(chainString string) (Action, error) {
@@ -59,15 +51,7 @@ func ActionTypeFromString(chainString string) (Action, error) {
 		}
 	}
 
-	return Action{value: ACTION_INVALID}, errors.New("Invalid action text name")
-}
-
-func ActionTypeFromValue(value ActionType) (Action, error) {
-	_, ok := actionMap[value]
-	if ok {
-		return Action{value: value}, nil
-	}
-	return Action{value: ACTION_INVALID}, errors.New("Invalid action type value")
+	return Action{value: ACTION_INVALID}, errors.New("invalid action text name")
 }
 
 func (ctx *Action) SetValue(value ActionType) {
@@ -80,12 +64,4 @@ func (ctx Action) GetValue() ActionType {
 
 func (ctx Action) GetString() string {
 	return actionMap[ctx.value]
-}
-
-func (ctx Action) MarshalRest() string {
-	return actionMap[ctx.value]
-}
-
-func (ctx Action) MarshalIpTables() string {
-	return strings.ToUpper(actionMap[ctx.value])
 }

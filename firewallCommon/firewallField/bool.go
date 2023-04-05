@@ -19,17 +19,9 @@ func (ctx *Bool) TryInitFromString(param string) error {
 	return nil
 }
 
-func (ctx *Bool) TryInitFromRest(param string) error {
-	return ctx.TryInitFromString(param)
-}
-
 func BoolTypeFromString(idString string) (Bool, error) {
 	id := Bool{}
 	return id, id.TryInitFromString(idString)
-}
-
-func BoolTypeFromValue(value bool) (Bool, error) {
-	return Bool{value: value}, nil
 }
 
 func (ctx *Bool) SetValue(value bool) {
@@ -45,12 +37,4 @@ func (ctx Bool) GetString() string {
 		return "true"
 	}
 	return "false"
-}
-
-func (ctx Bool) MarshalRest() string {
-	return ctx.GetString()
-}
-
-func (ctx Bool) MarshalIpTables() string {
-	return ctx.GetString()
 }

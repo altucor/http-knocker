@@ -1,50 +1,60 @@
 package devices
 
 import (
-	"bytes"
-	"errors"
 	"fmt"
 	"net/http"
 
-	"github.com/altucor/http-knocker/deviceCommon"
-	"github.com/altucor/http-knocker/deviceResponse"
+	"github.com/altucor/http-knocker/device"
+	"github.com/altucor/http-knocker/firewallProtocol"
 	"github.com/altucor/http-knocker/logging"
-
-	"golang.org/x/exp/slices"
+	"gopkg.in/yaml.v3"
 )
 
 type ConnectionRest struct {
 	Username string `yaml:"username"`
 	Password string `yaml:"password"`
 	Endpoint string `yaml:"endpoint"`
-	Tls      bool   `yaml:"tls"`
+	// Tls      bool   `yaml:"tls"`
+}
+
+type IFirewallRestProtocol interface {
+	firewallProtocol.IFirewallProtocol
+	To(cmd device.IDeviceCommand, baseUrl string) (*http.Request, error)
+	From(httpResponse *http.Response, cmdType device.DeviceCommandType) (device.IDeviceResponse, error)
 }
 
 type DeviceRest struct {
-	config             ConnectionRest
-	supportedProtocols []DeviceProtocol
+	config   ConnectionRest
+	protocol IFirewallRestProtocol
 }
 
-func DeviceRestNew(cfg DeviceConnectionDesc) *DeviceRest {
+func DeviceRestNew(cfg ConnectionRest, protocol IFirewallRestProtocol) *DeviceRest {
 	ctx := &DeviceRest{
-		config: ConnectionRest{
-			Username: cfg.Username,
-			Password: cfg.Password,
-			Endpoint: cfg.Endpoint,
-			Tls:      cfg.Tls,
-		},
-		supportedProtocols: []DeviceProtocol{
-			PROTOCOL_ROUTER_OS_REST,
-		},
+		config:   cfg,
+		protocol: protocol,
 	}
 	return ctx
 }
 
+func DeviceRestNewFromYaml(value *yaml.Node, protocol IFirewallRestProtocol) (*DeviceRest, error) {
+	var cfg struct {
+		Conn ConnectionRest `yaml:"connection"`
+	}
+	if err := value.Decode(&cfg); err != nil {
+		return nil, err
+	}
+	return DeviceRestNew(cfg.Conn, protocol), nil
+}
+
 func (ctx *DeviceRest) Start() error {
+	logging.CommonLog().Info("[deviceRest] Starting...")
+	logging.CommonLog().Info("[deviceRest] Starting... DONE")
 	return nil
 }
 
 func (ctx *DeviceRest) Stop() error {
+	logging.CommonLog().Info("[deviceRest] Stopping...")
+	logging.CommonLog().Info("[deviceRest] Stopping... DONE")
 	return nil
 }
 
@@ -53,68 +63,36 @@ func (ctx *DeviceRest) isAvailable() bool {
 	return false
 }
 
-func (ctx *DeviceRest) GetSupportedProtocols() []DeviceProtocol {
-	return ctx.supportedProtocols
-}
-
 func (ctx *DeviceRest) GetType() DeviceType {
 	return DeviceTypeRest
 }
 
-func (ctx *DeviceRest) executeRestCommand(method string, url string, body string) (http.Response, error) {
-	req, err := http.NewRequest(method, ctx.config.Endpoint+url, bytes.NewReader([]byte(body)))
-	if err != nil {
-		logging.CommonLog().Error("could not create request: %s\n", err)
-	}
-	req.SetBasicAuth(ctx.config.Username, ctx.config.Password)
-	req.Header.Set("content-type", "application/json")
-	res, err := http.DefaultClient.Do(req)
+func (ctx *DeviceRest) executeRestCommand(request *http.Request) (*http.Response, error) {
+	request.SetBasicAuth(ctx.config.Username, ctx.config.Password)
+	res, err := http.DefaultClient.Do(request)
 	if err != nil {
 		logging.CommonLog().Error("error making http request: %s\n", err)
-		return http.Response{}, err
+		return nil, err
 	}
 	if res != nil {
 		logging.CommonLog().Info("[deviceRest] status code:", res.StatusCode)
 		logging.CommonLog().Debug("[deviceRest] response:", res)
 	}
-	return *res, nil
+	return res, nil
 }
 
-func (ctx *DeviceRest) RunCommandWithReply(command deviceCommon.IDeviceCommand, proto DeviceProtocol) (deviceCommon.IDeviceResponse, error) {
-	if !slices.Contains(ctx.supportedProtocols, proto) {
-		return nil, errors.New(fmt.Sprintf("[deviceRest] RunCommandWithReply: Error not supported protocol: %s", proto))
-	}
-	var method string = ""
-	var url string = ""
-	var body string = ""
+func (ctx *DeviceRest) RunCommandWithReply(command device.IDeviceCommand) (device.IDeviceResponse, error) {
+	var req *http.Request
 	var err error = nil
-	switch proto {
-	case PROTOCOL_ROUTER_OS_REST:
-		method, url, body, err = command.Rest()
-	}
+	req, err = ctx.protocol.To(command, ctx.config.Endpoint)
 	if err != nil {
 		logging.CommonLog().Error("[deviceRest] RunCommandWithReply: Error marshaling command to REST %s", err)
-		return nil, errors.New(fmt.Sprintf("[deviceRest] RunCommandWithReply: Error marshaling command to REST %s", err))
+		return nil, fmt.Errorf("[deviceRest] RunCommandWithReply: Error marshaling command to REST %s", err)
 	}
-	httpResponse, err := ctx.executeRestCommand(method, url, body)
+	httpResponse, err := ctx.executeRestCommand(req)
 	if err != nil {
 		logging.CommonLog().Error("[deviceRest] RunCommandWithReply: Error executing command %s", err)
-		return nil, errors.New(fmt.Sprintf("[deviceRest] RunCommandWithReply: Error executing command %s", err))
+		return nil, fmt.Errorf("[deviceRest] RunCommandWithReply: Error executing command %s", err)
 	}
-	switch command.GetType() {
-	case deviceCommon.DeviceCommandAdd:
-		return deviceResponse.AddFromRouterOsRest(httpResponse)
-	case deviceCommon.DeviceCommandGet:
-		return deviceResponse.GetFromRouterOsRest(httpResponse)
-	case deviceCommon.DeviceCommandRemove:
-		return deviceResponse.RemoveFromRouterOsRest(httpResponse)
-	default:
-		logging.CommonLog().Error("[deviceRest] Unknown response type")
-		return nil, errors.New("[deviceRest] Unknown response type")
-	}
+	return ctx.protocol.From(httpResponse, command.GetType())
 }
-
-// func (ctx *DeviceRest) RunCommand(command deviceCommon.IDeviceCommand) error {
-// 	_, err := ctx.RunCommandWithReply(command)
-// 	return err
-// }

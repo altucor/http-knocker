@@ -11,11 +11,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/altucor/http-knocker/deviceCommand"
-	"github.com/altucor/http-knocker/deviceCommon"
-	"github.com/altucor/http-knocker/deviceResponse"
+	"github.com/altucor/http-knocker/device"
+	"github.com/altucor/http-knocker/device/command"
+	"github.com/altucor/http-knocker/device/response"
 	"github.com/altucor/http-knocker/firewallCommon"
 	"github.com/altucor/http-knocker/logging"
+	"gopkg.in/yaml.v3"
 
 	"github.com/gorilla/mux"
 )
@@ -30,7 +31,7 @@ const (
 
 type virtualFirewallCmd struct {
 	id    string
-	cmd   deviceCommon.IDeviceCommand
+	cmd   device.IDeviceCommand
 	state vfwc
 }
 
@@ -62,7 +63,7 @@ func generateCmdId() string {
 	return fmt.Sprintf("%x", h.Sum(nil))
 }
 
-func (ctx *virtualFirewall) Add(cmd deviceCommand.Add) (deviceResponse.Add, error) {
+func (ctx *virtualFirewall) Add(cmd command.Add) (response.Add, error) {
 	// Should add new commands to pending list until they will be accepted by remote firewall
 	ctx.mu.Lock()
 	defer ctx.mu.Unlock()
@@ -71,17 +72,17 @@ func (ctx *virtualFirewall) Add(cmd deviceCommand.Add) (deviceResponse.Add, erro
 		cmd:   cmd,
 		state: VFWC_STATE_PENDING_ADD,
 	})
-	return deviceResponse.Add{}, nil
+	return response.Add{}, nil
 }
 
-func (ctx *virtualFirewall) Get(cmd deviceCommand.Get) (deviceResponse.Get, error) {
+func (ctx *virtualFirewall) Get(cmd command.Get) (response.Get, error) {
 	// Should return with list of accepted virtual firewall rules
 	ctx.mu.Lock()
 	defer ctx.mu.Unlock()
-	return deviceResponse.GetFromRuleList(ctx.rules)
+	return response.GetFromRuleList(ctx.rules)
 }
 
-func (ctx *virtualFirewall) Remove(cmd deviceCommand.Remove) (deviceResponse.Remove, error) {
+func (ctx *virtualFirewall) Remove(cmd command.Remove) (response.Remove, error) {
 	// Should mark rules from accepted list as pending for removal, but not remove them
 	// Only really remove them when remote firewall will approve this
 	ctx.mu.Lock()
@@ -91,7 +92,7 @@ func (ctx *virtualFirewall) Remove(cmd deviceCommand.Remove) (deviceResponse.Rem
 		cmd:   cmd,
 		state: VFWC_STATE_PENDING_ADD,
 	})
-	return deviceResponse.Remove{}, nil
+	return response.Remove{}, nil
 }
 
 func (ctx *virtualFirewall) getLastUpdates(count uint64) (string, error) {
@@ -206,11 +207,10 @@ type ConnectionPuller struct {
 }
 
 type DevicePuller struct {
-	config             ConnectionPuller
-	supportedProtocols []DeviceProtocol
-	server             *http.Server
-	router             *mux.Router
-	firewallState      virtualFirewall
+	config        ConnectionPuller
+	server        *http.Server
+	router        *mux.Router
+	firewallState virtualFirewall
 }
 
 func (ctx *DevicePuller) getLastUpdates(w http.ResponseWriter, r *http.Request) {
@@ -264,6 +264,7 @@ func (ctx *DevicePuller) acceptUpdates(w http.ResponseWriter, r *http.Request) {
 }
 
 func (ctx *DevicePuller) pushRulesSet(w http.ResponseWriter, r *http.Request) {
+	// TODO: After fixing firewall rule interface, check this parsing
 	logging.CommonLog().Info("[devicePuller] called pushRulesSet")
 	if err := r.ParseForm(); err != nil {
 		logging.CommonLog().Debugf("ParseForm() err: %v", err)
@@ -295,16 +296,13 @@ func http_not_found_handler(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "404\n")
 }
 
-func DevicePullerNew(cfg DeviceConnectionDesc) *DevicePuller {
+func DevicePullerNew(cfg ConnectionPuller) *DevicePuller {
 	ctx := &DevicePuller{
 		config: ConnectionPuller{
 			Username: cfg.Username,
 			Password: cfg.Password,
 			Port:     cfg.Port,
 			Endpoint: cfg.Endpoint,
-		},
-		supportedProtocols: []DeviceProtocol{
-			PROTOCOL_ANY,
 		},
 		server: &http.Server{
 			Addr:         "0.0.0.0" + ":" + fmt.Sprint(cfg.Port),
@@ -322,8 +320,14 @@ func DevicePullerNew(cfg DeviceConnectionDesc) *DevicePuller {
 	return ctx
 }
 
-func (ctx *DevicePuller) GetSupportedProtocols() []DeviceProtocol {
-	return ctx.supportedProtocols
+func DevicePullerNewFromYaml(value *yaml.Node, protocol IFirewallRestProtocol) (*DevicePuller, error) {
+	var cfg struct {
+		Conn ConnectionPuller `yaml:"connection"`
+	}
+	if err := value.Decode(&cfg); err != nil {
+		return nil, err
+	}
+	return DevicePullerNew(cfg.Conn), nil
 }
 
 func (ctx *DevicePuller) GetType() DeviceType {
@@ -331,34 +335,37 @@ func (ctx *DevicePuller) GetType() DeviceType {
 }
 
 func (ctx *DevicePuller) Start() error {
+	logging.CommonLog().Info("[devicePuller] Starting...")
 	ctx.server.Handler = ctx.router
 	go func() {
 		if err := ctx.server.ListenAndServe(); err != nil {
 			logging.CommonLog().Error(err)
 		}
 	}()
+	logging.CommonLog().Info("[devicePuller] Starting... DONE")
 	return nil
 }
 
 func (ctx *DevicePuller) Stop() error {
+	logging.CommonLog().Info("[devicePuller] Stopping...")
 	ctxTimeout, cancel := context.WithTimeout(context.Background(), time.Second*10)
 	defer cancel()
 	ctx.server.Shutdown(ctxTimeout)
+	logging.CommonLog().Info("[devicePuller] Stopping... DONE")
 	return nil
 }
 
 func (ctx *DevicePuller) RunCommandWithReply(
-	command deviceCommon.IDeviceCommand,
-	proto DeviceProtocol,
-) (deviceCommon.IDeviceResponse, error) {
+	cmd device.IDeviceCommand,
+) (device.IDeviceResponse, error) {
 
-	switch command.GetType() {
-	case deviceCommon.DeviceCommandAdd:
-		return ctx.firewallState.Add(command.(deviceCommand.Add))
-	case deviceCommon.DeviceCommandGet:
-		return ctx.firewallState.Get(command.(deviceCommand.Get))
-	case deviceCommon.DeviceCommandRemove:
-		return ctx.firewallState.Remove(command.(deviceCommand.Remove))
+	switch cmd.GetType() {
+	case device.DeviceCommandAdd:
+		return ctx.firewallState.Add(cmd.(command.Add))
+	case device.DeviceCommandGet:
+		return ctx.firewallState.Get(cmd.(command.Get))
+	case device.DeviceCommandRemove:
+		return ctx.firewallState.Remove(cmd.(command.Remove))
 	}
 
 	return nil, errors.New("invalid command type")

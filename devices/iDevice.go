@@ -3,9 +3,11 @@ package devices
 import (
 	"errors"
 
-	"github.com/altucor/http-knocker/deviceCommon"
+	"github.com/altucor/http-knocker/device"
+	"github.com/altucor/http-knocker/firewallProtocol"
 	"github.com/altucor/http-knocker/logging"
 	"golang.org/x/exp/slices"
+	"gopkg.in/yaml.v3"
 )
 
 type DeviceType string
@@ -41,21 +43,53 @@ func (ctx *DeviceType) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	return nil
 }
 
-type DeviceConnectionDesc struct {
-	Username   string `yaml:"username"`
-	Password   string `yaml:"password"`
-	Endpoint   string `yaml:"endpoint"`
-	Tls        bool   `yaml:"tls"`
-	Host       string `yaml:"host"`
-	Port       uint16 `yaml:"port"`
-	KnownHosts string `yaml:"knownHosts"`
-}
-
 type IDevice interface {
 	Start() error
 	Stop() error
-	GetSupportedProtocols() []DeviceProtocol
 	GetType() DeviceType
-	RunCommandWithReply(cmd deviceCommon.IDeviceCommand, proto DeviceProtocol) (deviceCommon.IDeviceResponse, error)
-	// RunCommand(firewallCommon.IFirewallCommand) error
+	RunCommandWithReply(cmd device.IDeviceCommand) (device.IDeviceResponse, error)
+}
+
+type InterfaceWrapper struct {
+	Device IDevice
+}
+
+func (ctx *InterfaceWrapper) UnmarshalYAML(value *yaml.Node) error {
+	var intermediate struct {
+		Type     string `yaml:"type"`
+		Protocol string `yaml:"protocol"`
+	}
+	if err := value.Decode(&intermediate); err != nil {
+		return err
+	}
+
+	var err error = nil
+	var protocol firewallProtocol.IFirewallProtocol
+	switch intermediate.Protocol {
+	case "rest-router-os":
+		protocol = firewallProtocol.ProtocolRouterOsRest{}
+	case "ssh-iptables":
+		protocol = firewallProtocol.ProtocolIpTables{}
+	default:
+		logging.CommonLog().Error("[iDevice] invalid type of protocol")
+		return errors.New("invalid type of protocol")
+	}
+
+	switch intermediate.Type {
+	case "rest":
+		ctx.Device, err = DeviceRestNewFromYaml(value, protocol.(IFirewallRestProtocol))
+	case "ssh":
+		ctx.Device, err = DeviceSshNewFromYaml(value, protocol.(IFirewallSshProtocol))
+	case "puller":
+		ctx.Device, err = DevicePullerNewFromYaml(value, nil)
+	case "router-os":
+		ctx.Device, err = DeviceRouterOsNewFromYaml(value, nil)
+	default:
+		logging.CommonLog().Error("[iDevice] invalid type of device")
+		return errors.New("invalid type of device")
+	}
+	if err != nil {
+		return err
+	}
+	return nil
 }

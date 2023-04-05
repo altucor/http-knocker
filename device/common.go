@@ -1,8 +1,4 @@
-package deviceCommon
-
-import (
-	"github.com/altucor/http-knocker/firewallCommon"
-)
+package device
 
 type DeviceCommandType string
 
@@ -15,11 +11,8 @@ const (
 type IDeviceCommand interface {
 	ToMap() map[string]interface{}
 	GetType() DeviceCommandType
-	Rest() (string, string, string, error) // Return: method, url, body
-	IpTables() (string, error)
 }
 
 type IDeviceResponse interface {
 	GetType() DeviceCommandType
-	GetRules() []firewallCommon.FirewallRule
 }

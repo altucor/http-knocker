@@ -3,7 +3,7 @@ package main
 import (
 	"flag"
 
-	"github.com/altucor/http-knocker/common"
+	"github.com/altucor/http-knocker/knocker"
 	"github.com/altucor/http-knocker/logging"
 )
 
@@ -37,13 +37,13 @@ func main() {
 	configPath := flag.String("config-path", "", "path to YAML config file")
 	flag.Parse()
 
-	cfg, err := common.ConfigurationNew(*configPath)
+	knocker, err := knocker.KnockerNewFromConfig(*configPath)
 	if err != nil {
-		logging.CommonLog().Fatalf("Invalid config file: %s\n", err)
+		logging.CommonLog().Error(err)
+		return
 	}
-	knocker := KnockerNew(cfg)
 	knocker.Start()
+	defer knocker.Stop()
 	knocker.Wait()
 	logging.CommonLog().Info("end of app")
-	knocker.Stop()
 }

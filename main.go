@@ -27,7 +27,7 @@ Ideas:
 + 2) Correct logging with different levels
 + 3) Correct error checking
 + 4) Allow to set in endpoint configuration from which parameter get user client like from headers or from GET parameter
-- 5) Optional Basic auth for enpoint url. User should provide file with user:pass pairs generated with htpasswd
+- 5) Optional Basic auth for endpoint url. User should provide file with user:pass pairs generated with htpasswd
 - 6) Add authentication option for endpoint through authelia
 
 */

@@ -17,9 +17,9 @@ import (
 type Knocker struct {
 	WebServer   *webserver.WebServer                             `yaml:"server"`
 	Devices     map[string]devices.InterfaceWrapper              `yaml:"devices"`
-	Controllers map[string]*firewallControllers.InterfaceWrapper `yaml:"controllers"`
 	Endpoints   map[string]*endpoint.Endpoint                    `yaml:"endpoints"`
-	Knocks      map[string]*Knock                                `yaml:"knocks"`
+	Controllers map[string]*firewallControllers.InterfaceWrapper `yaml:"controllers"`
+	// Knocks      map[string]*Knock                                `yaml:"knocks"`
 }
 
 func KnockerNewFromConfig(path string) (*Knocker, error) {
@@ -28,16 +28,16 @@ func KnockerNewFromConfig(path string) (*Knocker, error) {
 		Devices:     make(map[string]devices.InterfaceWrapper),
 		Controllers: make(map[string]*firewallControllers.InterfaceWrapper),
 		Endpoints:   make(map[string]*endpoint.Endpoint),
-		Knocks:      make(map[string]*Knock),
+		// Knocks:      make(map[string]*Knock),
 	}
 	bytes, err := ioutil.ReadFile(path)
 	if err != nil {
-		logging.CommonLog().Error("[Config] Error reading file: %s\n", err)
+		logging.CommonLog().Errorf("[Knocker] Error reading file: %s\n", err)
 		return knocker, err
 	}
 	err = yaml.Unmarshal(bytes, &knocker)
 	if err != nil {
-		logging.CommonLog().Error("[Config] Error unmarshaling yaml file: %s\n", err)
+		logging.CommonLog().Errorf("[Knocker] Error unmarshaling yaml file: %s\n", err)
 		return knocker, err
 	}
 
@@ -45,25 +45,29 @@ func KnockerNewFromConfig(path string) (*Knocker, error) {
 		element.SetDefaults()
 	}
 
-	// Setting Endpoint and Device to Controller
-	for _, element := range knocker.Controllers {
-		element.Controller.SetDevice(knocker.Devices[element.Controller.GetDeviceName()].Device)
-		element.Controller.SetEndpoint(knocker.Endpoints[element.Controller.GetEndpointName()])
+	// Check for duplications in endpoints
+	// To avoid cases when 2 endpoints assigned to one one controller or device
+	// Two endpoints with identical URL cannot be used anyway,
+	// because we can't register 2 endpoints under 1 url in webserver router.
+	// But there is open question about how to track cases when 2 endpoints
+	// with same port and protocol can affect same device
+	for _, first := range knocker.Endpoints {
+		for _, second := range knocker.Endpoints {
+			if first.IsEqual(second) {
+				logging.CommonLog().Error("Error found endpoints with duplicated params")
+			}
+		}
 	}
 
-	// Setting Controller and Endpoint to the Knock
-	for _, element := range knocker.Knocks {
-		element.SetController(knocker.Controllers[element.GetControllerName()].Controller)
-		element.SetEndpoint(knocker.Endpoints[element.GetEndpointName()])
+	// Setting Endpoint and Device to Controller
+	for _, element := range knocker.Controllers {
+		element.Controller.SetDevice(knocker.Devices[element.Device].Device)
+		element.Controller.SetEndpoint(knocker.Endpoints[element.Endpoint])
 	}
 
 	// Registering endpoints in webserver
-	for _, element := range knocker.Knocks {
-		knocker.WebServer.AddEndpoint(
-			element.GetEndpoint().RegisterWithMiddlewares(
-				element.GetHttpCallback,
-			),
-		)
+	for _, element := range knocker.Controllers {
+		knocker.WebServer.AddEndpoint(element.Controller.GetHttpCallback())
 	}
 
 	return knocker, nil

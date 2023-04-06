@@ -1,36 +1,36 @@
 package firewallControllers
 
 import (
+	"net/http"
+
 	"github.com/altucor/http-knocker/devices"
 	"github.com/altucor/http-knocker/endpoint"
-	"github.com/altucor/http-knocker/firewallCommon/firewallField"
 	"gopkg.in/yaml.v3"
 )
 
 type IController interface {
-	GetDeviceName() string
 	SetDevice(dev devices.IDevice)
-	GetEndpointName() string
 	SetEndpoint(endpoint *endpoint.Endpoint)
 	Start() error
 	Stop() error
-	GetDevice() devices.IDevice
-	GetEndpoint() endpoint.Endpoint
-	AddClient(ip_addr firewallField.Address) error
+	HttpCallbackAddClient(w http.ResponseWriter, r *http.Request)
+	GetHttpCallback() (string, func(w http.ResponseWriter, r *http.Request))
 	CleanupExpiredClients() error
 }
 
 type InterfaceWrapper struct {
 	Controller IController
+	Type       string `yaml:"type"`
+	Device     string `yaml:"device"`
+	Endpoint   string `yaml:"endpoint"`
 }
 
 func (ctx *InterfaceWrapper) UnmarshalYAML(value *yaml.Node) error {
-	var intermediate struct {
-		Type string `yaml:"type"`
-	}
+	var intermediate InterfaceWrapper
 	if err := value.Decode(&intermediate); err != nil {
 		return err
 	}
+	ctx = &intermediate
 
 	var err error = nil
 	switch intermediate.Type {

@@ -14,7 +14,6 @@ type ConnectionRest struct {
 	Username string `yaml:"username"`
 	Password string `yaml:"password"`
 	Endpoint string `yaml:"endpoint"`
-	// Tls      bool   `yaml:"tls"`
 }
 
 type IFirewallRestProtocol interface {
@@ -71,7 +70,7 @@ func (ctx *DeviceRest) executeRestCommand(request *http.Request) (*http.Response
 	request.SetBasicAuth(ctx.config.Username, ctx.config.Password)
 	res, err := http.DefaultClient.Do(request)
 	if err != nil {
-		logging.CommonLog().Error("error making http request: %s\n", err)
+		logging.CommonLog().Error("error making http request:", err)
 		return nil, err
 	}
 	if res != nil {
@@ -86,13 +85,13 @@ func (ctx *DeviceRest) RunCommandWithReply(command device.IDeviceCommand) (devic
 	var err error = nil
 	req, err = ctx.protocol.To(command, ctx.config.Endpoint)
 	if err != nil {
-		logging.CommonLog().Error("[deviceRest] RunCommandWithReply: Error marshaling command to REST %s", err)
-		return nil, fmt.Errorf("[deviceRest] RunCommandWithReply: Error marshaling command to REST %s", err)
+		logging.CommonLog().Error("[deviceRest] RunCommandWithReply: Error marshaling command to REST:", err)
+		return nil, fmt.Errorf("[deviceRest] RunCommandWithReply: Error marshaling command to REST: %s", err)
 	}
 	httpResponse, err := ctx.executeRestCommand(req)
 	if err != nil {
-		logging.CommonLog().Error("[deviceRest] RunCommandWithReply: Error executing command %s", err)
-		return nil, fmt.Errorf("[deviceRest] RunCommandWithReply: Error executing command %s", err)
+		logging.CommonLog().Error("[deviceRest] RunCommandWithReply: Error executing command:", err)
+		return nil, fmt.Errorf("[deviceRest] RunCommandWithReply: Error executing command: %s", err)
 	}
 	return ctx.protocol.From(httpResponse, command.GetType())
 }

@@ -28,6 +28,19 @@ func (ctx *Endpoint) SetDefaults() {
 	ctx.Auth.SetDefaults()
 }
 
+func (ctx *Endpoint) IsEqual(other *Endpoint) bool {
+	if ctx.Url == other.Url {
+		return true
+	}
+	// if ctx.Port == other.Port {
+	// 	return true
+	// }
+	// if ctx.Protocol.GetValue() == other.Protocol.GetValue() {
+	// 	return true
+	// }
+	return false
+}
+
 func (ctx Endpoint) RegisterWithMiddlewares(final http.HandlerFunc) (string, http.HandlerFunc) {
 	switch ctx.Auth.Type {
 	case AUTH_TYPE_NONE:

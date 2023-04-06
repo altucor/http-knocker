@@ -53,6 +53,6 @@ func (ctx Get) GetRules() []firewallCommon.FirewallRule {
 	return ctx.rules
 }
 
-func (ctx Get) AppendRule(rule firewallCommon.FirewallRule) {
+func (ctx *Get) AppendRule(rule firewallCommon.FirewallRule) {
 	ctx.rules = append(ctx.rules, rule)
 }

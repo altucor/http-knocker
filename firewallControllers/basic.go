@@ -3,9 +3,8 @@ package firewallControllers
 import (
 	"errors"
 	"fmt"
+	"net/http"
 	"net/netip"
-	"strconv"
-	"strings"
 	"sync"
 	"time"
 
@@ -19,75 +18,6 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-type controllerBasicComment struct {
-	delimiterKey string
-	prefix       string
-	firewallName string
-	timestamp    time.Time
-	endpointHash string
-}
-
-func FirewallCommentNew(delimiterKey string, prefix string, firewallName string, timestamp time.Time, endpointHash string) (controllerBasicComment, error) {
-	if strings.ContainsAny(prefix, delimiterKey) ||
-		strings.ContainsAny(firewallName, delimiterKey) ||
-		strings.ContainsAny(endpointHash, delimiterKey) {
-		return controllerBasicComment{}, errors.New("comment parameter cannot have delimiter key")
-	}
-	comment := controllerBasicComment{
-		delimiterKey: delimiterKey,
-		prefix:       prefix,
-		firewallName: firewallName,
-		timestamp:    timestamp,
-		endpointHash: endpointHash,
-	}
-	return comment, nil
-}
-
-func FirewallCommentNewFromString(comment string, delimiterKey string) (controllerBasicComment, error) {
-	commentParts := strings.Split(comment, delimiterKey)
-	if len(commentParts) != 4 {
-		// Do not report here errors, because not all rules acan have valid comment structure
-		return controllerBasicComment{}, nil
-	}
-	timestamp, err := strconv.ParseInt(commentParts[2], 10, 64)
-	if err != nil {
-		return controllerBasicComment{}, err
-	}
-	commentObj := controllerBasicComment{
-		delimiterKey: delimiterKey,
-		prefix:       commentParts[0],
-		firewallName: commentParts[1],
-		timestamp:    time.Unix(timestamp, 0),
-		endpointHash: commentParts[3],
-	}
-
-	return commentObj, nil
-}
-
-func (ctx controllerBasicComment) build() string {
-	comment := ctx.prefix + ctx.delimiterKey
-	comment += ctx.firewallName + ctx.delimiterKey
-	comment += fmt.Sprintf("%d", ctx.timestamp.Unix()) + ctx.delimiterKey
-	comment += ctx.endpointHash
-	return comment
-}
-
-func (ctx controllerBasicComment) getPrefix() string {
-	return ctx.prefix
-}
-
-func (ctx controllerBasicComment) getFirewallName() string {
-	return ctx.firewallName
-}
-
-func (ctx controllerBasicComment) getTimestamp() time.Time {
-	return ctx.timestamp
-}
-
-func (ctx controllerBasicComment) getEndpointHash() string {
-	return ctx.endpointHash
-}
-
 type ClientAdded struct {
 	Id    uint64
 	Added time.Time
@@ -100,7 +30,6 @@ type SafeAddedClientsStorage struct {
 
 type ControllerCfg struct {
 	DropRuleComment string `yaml:"drop-rule-comment"`
-	Device          string `yaml:"device"`
 }
 
 type controllerBasic struct {
@@ -111,7 +40,6 @@ type controllerBasic struct {
 	endpoint              *endpoint.Endpoint
 	controllerCfg         ControllerCfg
 	addedClients          SafeAddedClientsStorage
-	hash                  string
 	delimiterKey          string
 	needUpdateClientsList bool
 }
@@ -141,16 +69,8 @@ func ControllerBasicNewFromYaml(value *yaml.Node) (*controllerBasic, error) {
 	return ControllerBasicNew(temp.Config), nil
 }
 
-func (ctx *controllerBasic) GetDeviceName() string {
-	return ctx.controllerCfg.Device
-}
-
 func (ctx *controllerBasic) SetDevice(dev devices.IDevice) {
 	ctx.device = dev
-}
-
-func (ctx *controllerBasic) GetEndpointName() string {
-	return ctx.controllerCfg.Device
 }
 
 func (ctx *controllerBasic) SetEndpoint(endpoint *endpoint.Endpoint) {
@@ -172,12 +92,33 @@ func (ctx *controllerBasic) Stop() error {
 	return nil
 }
 
-func (ctx *controllerBasic) GetDevice() devices.IDevice {
-	return ctx.device
-}
-
 func (ctx *controllerBasic) GetEndpoint() endpoint.Endpoint {
 	return *ctx.endpoint
+}
+
+func (ctx *controllerBasic) HttpCallbackAddClient(w http.ResponseWriter, r *http.Request) {
+	logging.CommonLog().Info("[knock] accessing knock endpoint:", ctx.endpoint.Url)
+
+	if clientAddr, err := ctx.endpoint.IpAddrSource.GetFromRequest(r); err != nil {
+		logging.CommonLog().Error("[knock] Error getting client address:", err)
+	} else {
+		// Perform adding client in another thread
+		// To be able response to HTTP client faster
+		// And prevent timing attacks
+		go ctx.AddClient(clientAddr)
+		if ctx.endpoint.ResponseCodeOnSuccess != 0 {
+			w.WriteHeader(int(ctx.endpoint.ResponseCodeOnSuccess))
+			fmt.Fprintf(w, "%d\n", ctx.endpoint.ResponseCodeOnSuccess)
+		} else {
+			w.WriteHeader(http.StatusNotFound)
+			fmt.Fprintf(w, "404\n")
+		}
+		//http.Error(rw, http.StatusText(http.StatusMethodNotAllowed), http.StatusMethodNotAllowed)
+	}
+}
+
+func (ctx *controllerBasic) GetHttpCallback() (string, func(w http.ResponseWriter, r *http.Request)) {
+	return ctx.endpoint.RegisterWithMiddlewares(ctx.HttpCallbackAddClient)
 }
 
 func (ctx *controllerBasic) AddClient(ip_addr firewallField.Address) error {

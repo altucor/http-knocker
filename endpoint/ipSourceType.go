@@ -64,6 +64,6 @@ func (ctx *IpAddrSource) GetFromRequest(r *http.Request) (firewallField.Address,
 		clientAddrStr = r.URL.Query().Get(ctx.FieldName)
 	}
 
-	logging.CommonLog().Debugf("Client addr str: %s\n", clientAddrStr)
+	logging.CommonLog().Debugf("Client addr str: %s", clientAddrStr)
 	return firewallField.AddressTypeFromString(clientAddrStr)
 }

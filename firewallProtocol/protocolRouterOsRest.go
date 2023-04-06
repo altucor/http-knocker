@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"strings"
 
 	"github.com/altucor/http-knocker/device"
 	"github.com/altucor/http-knocker/device/command"
@@ -34,20 +35,58 @@ func (ctx *routerOsRestRule) toProtocol(rule firewallCommon.FirewallRule) map[st
 	return mapObj
 }
 
+func initRuleField(field firewallCommon.IFirewallField, data map[string]interface{}, name string) error {
+	if _, ok := data[name]; ok {
+		if name == ".id" {
+			if err := field.TryInitFromString(strings.ReplaceAll(data[name].(string), "*", "")); err != nil {
+				return err
+			}
+		} else {
+			if err := field.TryInitFromString(data[name].(string)); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
 func (ctx *routerOsRestRule) fromProtocol(data map[string]interface{}) (firewallCommon.FirewallRule, error) {
 	// modify map keys and values to conform common vision
 	rule := firewallCommon.FirewallRule{}
-	rule.Id.TryInitFromString(data[".id"].(string))
-	rule.Action.TryInitFromString(data["action"].(string))
-	rule.Chain.TryInitFromString(data["chain"].(string))
-	rule.Disabled.TryInitFromString(data["disabled"].(string))
-	rule.Protocol.TryInitFromString(data["protocol"].(string))
-	rule.SrcAddress.TryInitFromString(data["src-address"].(string))
-	rule.DstPort.TryInitFromString(data["dst-port"].(string))
-	rule.Comment.TryInitFromString(data["comment"].(string))
-	rule.Detail.TryInitFromString(data["detail"].(string))
-	rule.ErrorCmd.TryInitFromString(data["error"].(string))
-	rule.Message.TryInitFromString(data["message"].(string))
+
+	if err := initRuleField(&rule.Id, data, ".id"); err != nil {
+		return rule, err
+	}
+	if err := initRuleField(&rule.Action, data, "action"); err != nil {
+		return rule, err
+	}
+	if err := initRuleField(&rule.Chain, data, "chain"); err != nil {
+		return rule, err
+	}
+	if err := initRuleField(&rule.Disabled, data, "disabled"); err != nil {
+		return rule, err
+	}
+	if err := initRuleField(&rule.Protocol, data, "protocol"); err != nil {
+		return rule, err
+	}
+	if err := initRuleField(&rule.SrcAddress, data, "src-address"); err != nil {
+		return rule, err
+	}
+	if err := initRuleField(&rule.DstPort, data, "dst-port"); err != nil {
+		return rule, err
+	}
+	if err := initRuleField(&rule.Comment, data, "comment"); err != nil {
+		return rule, err
+	}
+	if err := initRuleField(&rule.Detail, data, "detail"); err != nil {
+		return rule, err
+	}
+	if err := initRuleField(&rule.ErrorCmd, data, "error"); err != nil {
+		return rule, err
+	}
+	if err := initRuleField(&rule.Message, data, "message"); err != nil {
+		return rule, err
+	}
 
 	return rule, nil
 }
@@ -112,7 +151,7 @@ type ProtocolRouterOsRest struct {
 }
 
 func (ctx ProtocolRouterOsRest) GetType() FirewallProtocolName {
-	return "router-os-rest"
+	return "rest-router-os"
 }
 
 func (ctx ProtocolRouterOsRest) To(cmd device.IDeviceCommand, baseUrl string) (*http.Request, error) {
@@ -131,7 +170,7 @@ func (ctx ProtocolRouterOsRest) To(cmd device.IDeviceCommand, baseUrl string) (*
 		}
 		body = string(jsonBytes)
 	case device.DeviceCommandGet:
-		method = http.MethodPut
+		method = http.MethodGet
 	case device.DeviceCommandRemove:
 		method = http.MethodDelete
 		url += fmt.Sprintf("/*%X", cmd.(command.Remove).GetId())
@@ -170,7 +209,7 @@ func (ctx ProtocolRouterOsRest) From(
 	case device.DeviceCommandAdd:
 		responseCmd = response.Add{}
 	case device.DeviceCommandGet:
-		responseCmd = response.Get{}
+		getResponse := response.Get{}
 		restProto := routerOsRestRule{}
 		for _, element := range jsonArr {
 			rule, err := restProto.fromProtocol(element)
@@ -178,10 +217,12 @@ func (ctx ProtocolRouterOsRest) From(
 				logging.CommonLog().Error("[FirewallRuleList] Error parsing firewall rule: %s\n", err)
 				continue
 			}
-			responseCmd.(response.Get).AppendRule(rule)
+			getResponse.AppendRule(rule)
 		}
+		// That assign at end because can't figure out how to cast interface to pointer structure
+		responseCmd = getResponse
 	case device.DeviceCommandRemove:
-		responseCmd = response.Remove{}
+		responseCmd = &response.Remove{}
 	}
 	return responseCmd, nil
 }

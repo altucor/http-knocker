@@ -51,17 +51,17 @@ type IDevice interface {
 }
 
 type InterfaceWrapper struct {
-	Device IDevice
+	Device   IDevice
+	Type     string `yaml:"type"`
+	Protocol string `yaml:"protocol"`
 }
 
 func (ctx *InterfaceWrapper) UnmarshalYAML(value *yaml.Node) error {
-	var intermediate struct {
-		Type     string `yaml:"type"`
-		Protocol string `yaml:"protocol"`
-	}
+	var intermediate InterfaceWrapper
 	if err := value.Decode(&intermediate); err != nil {
 		return err
 	}
+	ctx = &intermediate
 
 	var err error = nil
 	var protocol firewallProtocol.IFirewallProtocol
@@ -70,6 +70,8 @@ func (ctx *InterfaceWrapper) UnmarshalYAML(value *yaml.Node) error {
 		protocol = firewallProtocol.ProtocolRouterOsRest{}
 	case "ssh-iptables":
 		protocol = firewallProtocol.ProtocolIpTables{}
+	case "puller":
+		protocol = nil
 	default:
 		logging.CommonLog().Error("[iDevice] invalid type of protocol")
 		return errors.New("invalid type of protocol")

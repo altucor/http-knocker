@@ -15,4 +15,6 @@ type IDeviceCommand interface {
 
 type IDeviceResponse interface {
 	GetType() DeviceCommandType
+	SetError(err error)
+	GetError() error
 }

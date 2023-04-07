@@ -98,11 +98,11 @@ func (ctx ProtocolIpTables) From(data string, cmdType device.DeviceCommandType) 
 	var responseCmd device.IDeviceResponse
 	switch cmdType {
 	case device.DeviceCommandAdd:
-		responseCmd = response.Add{}
+		responseCmd = &response.Add{}
 	case device.DeviceCommandGet:
-		responseCmd = response.Get{}
+		responseCmd = &response.Get{}
 	case device.DeviceCommandRemove:
-		responseCmd = response.Remove{}
+		responseCmd = &response.Remove{}
 	}
 	return responseCmd, nil
 }

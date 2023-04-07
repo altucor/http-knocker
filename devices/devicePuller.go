@@ -63,7 +63,7 @@ func generateCmdId() string {
 	return fmt.Sprintf("%x", h.Sum(nil))
 }
 
-func (ctx *virtualFirewall) Add(cmd command.Add) (response.Add, error) {
+func (ctx *virtualFirewall) Add(cmd command.Add) (*response.Add, error) {
 	// Should add new commands to pending list until they will be accepted by remote firewall
 	ctx.mu.Lock()
 	defer ctx.mu.Unlock()
@@ -72,17 +72,17 @@ func (ctx *virtualFirewall) Add(cmd command.Add) (response.Add, error) {
 		cmd:   cmd,
 		state: VFWC_STATE_PENDING_ADD,
 	})
-	return response.Add{}, nil
+	return &response.Add{}, nil
 }
 
-func (ctx *virtualFirewall) Get(cmd command.Get) (response.Get, error) {
+func (ctx *virtualFirewall) Get(cmd command.Get) (*response.Get, error) {
 	// Should return with list of accepted virtual firewall rules
 	ctx.mu.Lock()
 	defer ctx.mu.Unlock()
 	return response.GetFromRuleList(ctx.rules)
 }
 
-func (ctx *virtualFirewall) Remove(cmd command.Remove) (response.Remove, error) {
+func (ctx *virtualFirewall) Remove(cmd command.Remove) (*response.Remove, error) {
 	// Should mark rules from accepted list as pending for removal, but not remove them
 	// Only really remove them when remote firewall will approve this
 	ctx.mu.Lock()
@@ -92,7 +92,7 @@ func (ctx *virtualFirewall) Remove(cmd command.Remove) (response.Remove, error) 
 		cmd:   cmd,
 		state: VFWC_STATE_PENDING_ADD,
 	})
-	return response.Remove{}, nil
+	return &response.Remove{}, nil
 }
 
 func (ctx *virtualFirewall) getLastUpdates(count uint64) (string, error) {

@@ -7,6 +7,7 @@ import (
 
 type Get struct {
 	cmdType device.DeviceCommandType
+	err     error
 	rules   []firewallCommon.FirewallRule
 }
 
@@ -36,17 +37,25 @@ type Get struct {
 // 	return frwResponse, nil
 // }
 
-func GetFromRuleList(rules []firewallCommon.FirewallRule) (Get, error) {
+func GetFromRuleList(rules []firewallCommon.FirewallRule) (*Get, error) {
 	frwResponse := Get{
 		cmdType: device.DeviceCommandGet,
 		rules:   rules,
 	}
 
-	return frwResponse, nil
+	return &frwResponse, nil
 }
 
 func (ctx Get) GetType() device.DeviceCommandType {
 	return ctx.cmdType
+}
+
+func (ctx *Get) SetError(err error) {
+	ctx.err = err
+}
+
+func (ctx Get) GetError() error {
+	return ctx.err
 }
 
 func (ctx Get) GetRules() []firewallCommon.FirewallRule {

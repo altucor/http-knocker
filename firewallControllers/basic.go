@@ -177,7 +177,7 @@ func (ctx *controllerBasic) GetRules() ([]firewallCommon.FirewallRule, error) {
 	if err != nil {
 		return nil, err
 	}
-	return getResponse.(response.Get).GetRules(), nil
+	return getResponse.(*response.Get).GetRules(), nil
 }
 
 func (ctx *controllerBasic) FindRuleIdByComment(comment string) (uint64, error) {
@@ -277,7 +277,7 @@ func ClientsWatchdog(firewall *controllerBasic) {
 			firewall.InitListOfAddedClients()
 		}
 		time.Sleep(time.Second)
-		logging.CommonLog().Debugf("[controllerBasic] ClientsWatchdog worked %d", uint64(time.Now().Unix()))
+		// logging.CommonLog().Debugf("[controllerBasic] ClientsWatchdog worked %d", uint64(time.Now().Unix()))
 		firewall.addedClients.mu.Lock()
 		clientsLength := len(firewall.addedClients.clients)
 		firewall.addedClients.mu.Unlock()

@@ -134,12 +134,12 @@ func (ctx *DeviceSsh) RunCommandWithReply(command device.IDeviceCommand) (device
 	sshStr, err = ctx.protocol.To(command)
 	if err != nil {
 		logging.CommonLog().Error("[deviceSsh] RunCommandWithReply failed to convert cmd to IpTables: %s\n", err)
-		return response.Add{}, err
+		return &response.Add{}, err
 	}
 	output, err := ctx.RunSSHCommandWithReply(sshStr)
 	if err != nil {
 		logging.CommonLog().Error("[deviceSsh] RunCommandWithReply failed to execute command: %s\n", err)
-		return response.Add{}, err
+		return &response.Add{}, err
 	}
 	logging.CommonLog().Info("[deviceSsh] RunCommand reply =", string(output))
 	return ctx.protocol.From(output, command.GetType())

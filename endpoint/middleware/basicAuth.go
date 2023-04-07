@@ -12,8 +12,8 @@ import (
 )
 
 type BasicAuthCfg struct {
-	UsersFile string   `yaml:"users-file"`
-	Users     []string `yaml:"users"`
+	UsersFile string   `yaml:"users-file,omitempty"`
+	Users     []string `yaml:"users,omitempty"`
 }
 
 type BasicAuth struct {
@@ -52,7 +52,9 @@ func (ctx *BasicAuth) setHtpasswdUsersFromFile(file string) error {
 }
 
 func BasicAuthNew(cfg BasicAuthCfg) *BasicAuth {
-	auth := &BasicAuth{}
+	auth := &BasicAuth{
+		authUsers: make(map[string]string),
+	}
 
 	if len(cfg.Users) != 0 {
 		err := auth.setHtpasswdUsersFromArray(cfg.Users)
@@ -74,13 +76,13 @@ func BasicAuthNew(cfg BasicAuthCfg) *BasicAuth {
 }
 
 func BasicAuthNewFromYaml(value *yaml.Node) (*BasicAuth, error) {
-	var cfg struct {
-		Conn BasicAuthCfg `yaml:"config"`
+	var temp struct {
+		Cfg BasicAuthCfg `yaml:"config"`
 	}
-	if err := value.Decode(&cfg); err != nil {
+	if err := value.Decode(&temp); err != nil {
 		return nil, err
 	}
-	return BasicAuthNew(cfg.Conn), nil
+	return BasicAuthNew(temp.Cfg), nil
 }
 
 func (ctx *BasicAuth) basicAuthCheck(user string, realm string) string {

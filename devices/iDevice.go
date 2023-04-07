@@ -50,22 +50,24 @@ type IDevice interface {
 	RunCommandWithReply(cmd device.IDeviceCommand) (device.IDeviceResponse, error)
 }
 
-type InterfaceWrapper struct {
-	Device   IDevice
+type Config struct {
 	Type     string `yaml:"type"`
 	Protocol string `yaml:"protocol"`
 }
 
+type InterfaceWrapper struct {
+	Device IDevice
+	Config Config
+}
+
 func (ctx *InterfaceWrapper) UnmarshalYAML(value *yaml.Node) error {
-	var intermediate InterfaceWrapper
-	if err := value.Decode(&intermediate); err != nil {
+	if err := value.Decode(&ctx.Config); err != nil {
 		return err
 	}
-	ctx = &intermediate
 
 	var err error = nil
 	var protocol firewallProtocol.IFirewallProtocol
-	switch intermediate.Protocol {
+	switch ctx.Config.Protocol {
 	case "rest-router-os":
 		protocol = firewallProtocol.ProtocolRouterOsRest{}
 	case "ssh-iptables":
@@ -77,7 +79,7 @@ func (ctx *InterfaceWrapper) UnmarshalYAML(value *yaml.Node) error {
 		return errors.New("invalid type of protocol")
 	}
 
-	switch intermediate.Type {
+	switch ctx.Config.Type {
 	case "rest":
 		ctx.Device, err = DeviceRestNewFromYaml(value, protocol.(IFirewallRestProtocol))
 	case "ssh":

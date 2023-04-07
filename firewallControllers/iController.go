@@ -18,22 +18,24 @@ type IController interface {
 	CleanupExpiredClients() error
 }
 
+type Config struct {
+	Type     string `yaml:"type"`
+	Device   string `yaml:"device"`
+	Endpoint string `yaml:"endpoint"`
+}
+
 type InterfaceWrapper struct {
 	Controller IController
-	Type       string `yaml:"type"`
-	Device     string `yaml:"device"`
-	Endpoint   string `yaml:"endpoint"`
+	Config     Config
 }
 
 func (ctx *InterfaceWrapper) UnmarshalYAML(value *yaml.Node) error {
-	var intermediate InterfaceWrapper
-	if err := value.Decode(&intermediate); err != nil {
+	if err := value.Decode(&ctx.Config); err != nil {
 		return err
 	}
-	ctx = &intermediate
 
 	var err error = nil
-	switch intermediate.Type {
+	switch ctx.Config.Type {
 	case "basic":
 		ctx.Controller, err = ControllerBasicNewFromYaml(value)
 	}

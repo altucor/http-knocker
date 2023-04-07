@@ -19,16 +19,14 @@ type Knocker struct {
 	Devices     map[string]devices.InterfaceWrapper              `yaml:"devices"`
 	Endpoints   map[string]*endpoint.Endpoint                    `yaml:"endpoints"`
 	Controllers map[string]*firewallControllers.InterfaceWrapper `yaml:"controllers"`
-	// Knocks      map[string]*Knock                                `yaml:"knocks"`
 }
 
 func KnockerNewFromConfig(path string) (*Knocker, error) {
 	knocker := &Knocker{
 		WebServer:   nil,
 		Devices:     make(map[string]devices.InterfaceWrapper),
-		Controllers: make(map[string]*firewallControllers.InterfaceWrapper),
 		Endpoints:   make(map[string]*endpoint.Endpoint),
-		// Knocks:      make(map[string]*Knock),
+		Controllers: make(map[string]*firewallControllers.InterfaceWrapper),
 	}
 	bytes, err := ioutil.ReadFile(path)
 	if err != nil {
@@ -61,8 +59,8 @@ func KnockerNewFromConfig(path string) (*Knocker, error) {
 
 	// Setting Endpoint and Device to Controller
 	for _, element := range knocker.Controllers {
-		element.Controller.SetDevice(knocker.Devices[element.Device].Device)
-		element.Controller.SetEndpoint(knocker.Endpoints[element.Endpoint])
+		element.Controller.SetDevice(knocker.Devices[element.Config.Device].Device)
+		element.Controller.SetEndpoint(knocker.Endpoints[element.Config.Endpoint])
 	}
 
 	// Registering endpoints in webserver

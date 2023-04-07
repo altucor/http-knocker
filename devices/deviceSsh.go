@@ -28,8 +28,9 @@ type IFirewallSshProtocol interface {
 
 type DeviceSsh struct {
 	config   ConnectionSSHCfg
-	client   *ssh.Client
 	protocol IFirewallSshProtocol
+	client   *ssh.Client
+	session  *ssh.Session
 }
 
 func DeviceSshNew(cfg ConnectionSSHCfg, protocol IFirewallSshProtocol) *DeviceSsh {
@@ -54,17 +55,21 @@ func DeviceSshNewFromYaml(value *yaml.Node, protocol IFirewallSshProtocol) (*Dev
 
 func (ctx *DeviceSsh) Start() error {
 	logging.CommonLog().Info("[deviceSsh] Starting...")
+	ctx.ClientConnect()
+	ctx.SessionStart()
 	logging.CommonLog().Info("[deviceSsh] Starting... DONE")
 	return nil
 }
 
 func (ctx *DeviceSsh) Stop() error {
 	logging.CommonLog().Info("[deviceSsh] Stopping...")
+	ctx.SessionStop()
+	ctx.ClientDisconnect()
 	logging.CommonLog().Info("[deviceSsh] Stopping... DONE")
 	return nil
 }
 
-func (ctx *DeviceSsh) Connect() {
+func (ctx *DeviceSsh) ClientConnect() {
 	logging.CommonLog().Info("[deviceSsh] Connect called")
 	//hostKeyCallback, err := knownhosts.New("/home/debian11/.ssh/known_hosts")
 	//if err != nil {
@@ -84,9 +89,29 @@ func (ctx *DeviceSsh) Connect() {
 	ctx.client = sshConnection
 }
 
-func (ctx *DeviceSsh) Disconnect() {
+func (ctx *DeviceSsh) ClientDisconnect() {
 	logging.CommonLog().Info("[deviceSsh] Disconnect called")
 	ctx.client.Close()
+}
+
+func (ctx *DeviceSsh) SessionStart() {
+	var err error = nil
+	ctx.session, err = ctx.client.NewSession()
+	if err != nil {
+		logging.CommonLog().Error("[deviceSsh] RunSSHCommandWithReply NewSession error:", err)
+	}
+	// configure terminal mode
+	modes := ssh.TerminalModes{
+		ssh.ECHO: 0, // supress echo
+	}
+	// run terminal session
+	if err := ctx.session.RequestPty("xterm", 50, 80, modes); err != nil {
+		logging.CommonLog().Error("[deviceSsh] RunSSHCommandWithReply RequestPty error:", err)
+	}
+}
+
+func (ctx *DeviceSsh) SessionStop() {
+	ctx.session.Close()
 }
 
 func (ctx *DeviceSsh) GetType() DeviceType {
@@ -94,27 +119,7 @@ func (ctx *DeviceSsh) GetType() DeviceType {
 }
 
 func (ctx *DeviceSsh) RunSSHCommandWithReply(cmd string) (string, error) {
-	ctx.Connect()
-	defer ctx.Disconnect()
-	logging.CommonLog().Info("[deviceSsh] RunSSHCommandWithReply called with =", cmd)
-	session, err := ctx.client.NewSession()
-	if err != nil {
-		logging.CommonLog().Error("[deviceSsh] RunSSHCommandWithReply NewSession error:", err)
-		return "", err
-	}
-	defer session.Close()
-
-	// configure terminal mode
-	modes := ssh.TerminalModes{
-		ssh.ECHO: 0, // supress echo
-	}
-	// run terminal session
-	if err := session.RequestPty("xterm", 50, 80, modes); err != nil {
-		logging.CommonLog().Error("[deviceSsh] RunSSHCommandWithReply RequestPty error:", err)
-		return "", err
-	}
-	// start remote shell
-	output, err := session.Output(cmd)
+	output, err := ctx.session.Output(cmd)
 	if err != nil {
 		logging.CommonLog().Error("[deviceSsh] RunSSHCommandWithReply Output error:", err)
 		return "", err

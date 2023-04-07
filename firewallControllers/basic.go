@@ -34,6 +34,7 @@ type ControllerCfg struct {
 
 type controllerBasic struct {
 	watchdogRunning       bool
+	url                   string
 	prefix                string
 	name                  string
 	device                devices.IDevice
@@ -69,6 +70,10 @@ func ControllerBasicNewFromYaml(value *yaml.Node) (*controllerBasic, error) {
 	return ControllerBasicNew(temp.Config), nil
 }
 
+func (ctx *controllerBasic) SetUrl(url string) {
+	ctx.url = url
+}
+
 func (ctx *controllerBasic) SetDevice(dev devices.IDevice) {
 	ctx.device = dev
 }
@@ -97,7 +102,7 @@ func (ctx *controllerBasic) GetEndpoint() endpoint.Endpoint {
 }
 
 func (ctx *controllerBasic) HttpCallbackAddClient(w http.ResponseWriter, r *http.Request) {
-	logging.CommonLog().Info("[knock] accessing knock endpoint:", ctx.endpoint.Url)
+	logging.CommonLog().Info("[knock] accessing knock endpoint:", ctx.url)
 
 	if clientAddr, err := ctx.endpoint.IpAddrSource.GetFromRequest(r); err != nil {
 		logging.CommonLog().Error("[knock] Error getting client address:", err)
@@ -118,7 +123,8 @@ func (ctx *controllerBasic) HttpCallbackAddClient(w http.ResponseWriter, r *http
 }
 
 func (ctx *controllerBasic) GetHttpCallback() (string, func(w http.ResponseWriter, r *http.Request)) {
-	return ctx.endpoint.RegisterWithMiddlewares(ctx.HttpCallbackAddClient)
+	// ctx.endpoint.Middlewares["test"].Middleware.Register(ctx.HttpCallbackAddClient)
+	return "/" + ctx.url, ctx.endpoint.RegisterMiddlewares(ctx.HttpCallbackAddClient)
 }
 
 func (ctx *controllerBasic) AddClient(ip_addr firewallField.Address) error {

@@ -9,6 +9,7 @@ import (
 )
 
 type IController interface {
+	SetUrl(url string)
 	SetDevice(dev devices.IDevice)
 	SetEndpoint(endpoint *endpoint.Endpoint)
 	Start() error
@@ -20,6 +21,7 @@ type IController interface {
 
 type Config struct {
 	Type     string `yaml:"type"`
+	Url      string `yaml:"url"`
 	Device   string `yaml:"device"`
 	Endpoint string `yaml:"endpoint"`
 }
@@ -42,5 +44,6 @@ func (ctx *InterfaceWrapper) UnmarshalYAML(value *yaml.Node) error {
 	if err != nil {
 		return err
 	}
+	ctx.Controller.SetUrl(ctx.Config.Url)
 	return nil
 }

@@ -43,20 +43,6 @@ func KnockerNewFromConfig(path string) (*Knocker, error) {
 		element.SetDefaults()
 	}
 
-	// Check for duplications in endpoints
-	// To avoid cases when 2 endpoints assigned to one one controller or device
-	// Two endpoints with identical URL cannot be used anyway,
-	// because we can't register 2 endpoints under 1 url in webserver router.
-	// But there is open question about how to track cases when 2 endpoints
-	// with same port and protocol can affect same device
-	for _, first := range knocker.Endpoints {
-		for _, second := range knocker.Endpoints {
-			if first.IsEqual(second) {
-				logging.CommonLog().Error("Error found endpoints with duplicated params")
-			}
-		}
-	}
-
 	// Setting Endpoint and Device to Controller
 	for _, element := range knocker.Controllers {
 		element.Controller.SetDevice(knocker.Devices[element.Config.Device].Device)

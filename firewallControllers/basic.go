@@ -146,10 +146,16 @@ func (ctx *controllerBasic) AddClient(ip_addr firewallField.Address) error {
 		}
 	}
 
-	dropRuleId, err := ctx.GetDropRuleId()
-	if err != nil {
-		logging.CommonLog().Error("[ControllerBasic] AddClient cannot find drop rule id %d", dropRuleId)
-		return err
+	// If drop rule comment is set
+	// Then find it's id on device firewall
+	// Otherwise ignore searching of it
+	var dropRuleId uint64 = 0
+	if ctx.controllerCfg.DropRuleComment != "" {
+		dropRuleId, err = ctx.FindRuleIdByComment(ctx.controllerCfg.DropRuleComment)
+		if err != nil {
+			logging.CommonLog().Error("[ControllerBasic] AddClient cannot find drop rule id %d", dropRuleId)
+			return err
+		}
 	}
 
 	comment, err := FirewallCommentNew(
@@ -199,10 +205,6 @@ func (ctx *controllerBasic) FindRuleIdByComment(comment string) (uint64, error) 
 
 	logging.CommonLog().Error("[ControllerBasic] FindRuleIdByComment Cannot find target rule")
 	return 0, errors.New("cannot find target rule")
-}
-
-func (ctx *controllerBasic) GetDropRuleId() (uint64, error) {
-	return ctx.FindRuleIdByComment(ctx.controllerCfg.DropRuleComment)
 }
 
 func (ctx *controllerBasic) IsClientWithAddrExist(ip_addr netip.Addr) (bool, error) {

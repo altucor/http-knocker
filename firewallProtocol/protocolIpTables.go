@@ -56,7 +56,7 @@ func (ctx *IpTablesRule) fromProtocol(data string) (firewallCommon.FirewallRule,
 type ProtocolIpTables struct {
 }
 
-func (ctx ProtocolIpTables) GetType() FirewallProtocolName {
+func (ctx ProtocolIpTables) GetType() string {
 	return "ssh-iptables"
 }
 

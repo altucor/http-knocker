@@ -89,10 +89,6 @@ func (ctx *DeviceRouterOsApi) Disconnect() {
 	ctx.client.Close()
 }
 
-func (ctx *DeviceRouterOsApi) GetType() DeviceType {
-	return DeviceTypeRouterOs
-}
-
 func (ctx *DeviceRouterOsApi) IsConnected() bool {
 	return ctx.client != nil
 }

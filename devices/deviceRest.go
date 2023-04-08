@@ -62,10 +62,6 @@ func (ctx *DeviceRest) isAvailable() bool {
 	return false
 }
 
-func (ctx *DeviceRest) GetType() DeviceType {
-	return DeviceTypeRest
-}
-
 func (ctx *DeviceRest) executeRestCommand(request *http.Request) (*http.Response, error) {
 	request.SetBasicAuth(ctx.config.Username, ctx.config.Password)
 	res, err := http.DefaultClient.Do(request)

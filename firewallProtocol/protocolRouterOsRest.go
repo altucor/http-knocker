@@ -94,7 +94,7 @@ func (ctx *routerOsRestRule) fromProtocol(data map[string]interface{}) (firewall
 type ProtocolRouterOsRest struct {
 }
 
-func (ctx ProtocolRouterOsRest) GetType() FirewallProtocolName {
+func (ctx ProtocolRouterOsRest) GetType() string {
 	return "rest-router-os"
 }
 

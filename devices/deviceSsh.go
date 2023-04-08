@@ -114,10 +114,6 @@ func (ctx *DeviceSsh) SessionStop() {
 	ctx.session.Close()
 }
 
-func (ctx *DeviceSsh) GetType() DeviceType {
-	return DeviceTypeSsh
-}
-
 func (ctx *DeviceSsh) RunSSHCommandWithReply(cmd string) (string, error) {
 	ctx.SessionStart()
 	output, err := ctx.session.Output(cmd)

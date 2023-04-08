@@ -330,10 +330,6 @@ func DevicePullerNewFromYaml(value *yaml.Node, protocol IFirewallRestProtocol) (
 	return DevicePullerNew(cfg.Conn), nil
 }
 
-func (ctx *DevicePuller) GetType() DeviceType {
-	return DeviceTypePuller
-}
-
 func (ctx *DevicePuller) Start() error {
 	logging.CommonLog().Info("[devicePuller] Starting...")
 	ctx.server.Handler = ctx.router

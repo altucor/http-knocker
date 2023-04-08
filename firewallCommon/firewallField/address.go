@@ -2,6 +2,7 @@ package firewallField
 
 import (
 	"net/netip"
+	"strings"
 
 	"github.com/altucor/http-knocker/logging"
 )
@@ -11,6 +12,7 @@ type Address struct {
 }
 
 func (ctx *Address) TryInitFromString(param string) error {
+	param = strings.Split(param, "/")[0] // 1.1.1.1/32 detect and skip mask separator
 	addr, err := netip.ParseAddr(param)
 	if err != nil {
 		logging.CommonLog().Error("Cannot init from string, %s\n", err)

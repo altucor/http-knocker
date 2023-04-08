@@ -132,7 +132,7 @@ func (ctx *controllerBasic) AddClient(ip_addr firewallField.Address) error {
 	// to prevent duplication rules for one ip addr
 	frwRules, err := ctx.GetRules()
 	if err != nil {
-		logging.CommonLog().Error("[ControllerBasic] AddClient cannot check is client exist: %s", err)
+		logging.CommonLog().Error("[ControllerBasic] AddClient cannot check is client exist: ", err)
 		return err
 	}
 	for _, element := range frwRules {

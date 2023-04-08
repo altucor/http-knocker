@@ -9,12 +9,13 @@ import (
 	"github.com/altucor/http-knocker/device/command"
 	"github.com/altucor/http-knocker/device/response"
 	"github.com/altucor/http-knocker/firewallCommon"
+	"github.com/altucor/http-knocker/logging"
 )
 
 type IpTablesRule struct {
 }
 
-func (ctx *IpTablesRule) ToProtocol(rule firewallCommon.FirewallRule) string {
+func (ctx *IpTablesRule) toProtocol(rule firewallCommon.FirewallRule) string {
 	// modify map keys and values to conform device protocol
 	// iptables -I INPUT 2 -p tcp -s 10.1.1.2 --dport 22 -j ACCEPT -m comment --comment "My comments here"
 	var result string = ""
@@ -40,7 +41,7 @@ func iptablesParseParamViaRegex(rule string, frwParam firewallCommon.IFirewallFi
 	}
 }
 
-func (ctx *IpTablesRule) FromProtocol(data string) (firewallCommon.FirewallRule, error) {
+func (ctx *IpTablesRule) fromProtocol(data string) (firewallCommon.FirewallRule, error) {
 	// modify map keys and values to conform common vision
 	rule := firewallCommon.FirewallRule{}
 	iptablesParseParamViaRegex(data, &rule.Chain, `-A\s([^\s]+)\s`)
@@ -51,27 +52,6 @@ func (ctx *IpTablesRule) FromProtocol(data string) (firewallCommon.FirewallRule,
 	iptablesParseParamViaRegex(data, &rule.Comment, `-m\s+comment\s+--comment\s+("[^"]*"|'[^']*'|[^'"\s]+)`)
 	return rule, nil
 }
-
-// func FirewallRuleListNewFromIpTables(response string) ([]FirewallRule, error) {
-// 	frwList := make([]FirewallRule, 1)
-
-// 	if len(response) == 0 {
-// 		return frwList, nil
-// 	}
-
-// 	rules := strings.Split(response, "\r\n")
-// 	for index, element := range rules {
-// 		rule, err := FirewallRuleNewFromIpTables(element)
-// 		if err != nil {
-// 			logging.CommonLog().Error("[FirewallRuleList] Error parsing firewall rule: %s\n", err)
-// 			return frwList, err
-// 		}
-// 		rule.Id.SetValue(uint64(index))
-// 		frwList = append(frwList, rule)
-// 	}
-
-// 	return frwList, nil
-// }
 
 type ProtocolIpTables struct {
 }
@@ -85,7 +65,7 @@ func (ctx ProtocolIpTables) To(cmd device.IDeviceCommand) (string, error) {
 	switch cmd.GetType() {
 	case device.DeviceCommandAdd:
 		frw := IpTablesRule{}
-		cmdData = "iptables -t filter " + frw.ToProtocol(cmd.(command.Add).GetRule())
+		cmdData = "iptables -t filter " + frw.toProtocol(cmd.(command.Add).GetRule())
 	case device.DeviceCommandGet:
 		cmdData = "iptables -S INPUT"
 	case device.DeviceCommandRemove:
@@ -96,11 +76,31 @@ func (ctx ProtocolIpTables) To(cmd device.IDeviceCommand) (string, error) {
 
 func (ctx ProtocolIpTables) From(data string, cmdType device.DeviceCommandType) (device.IDeviceResponse, error) {
 	var responseCmd device.IDeviceResponse
+
+	if len(data) == 0 {
+		return responseCmd, nil
+	}
+
 	switch cmdType {
 	case device.DeviceCommandAdd:
 		responseCmd = &response.Add{}
 	case device.DeviceCommandGet:
-		responseCmd = &response.Get{}
+		getResponse := &response.Get{}
+		rules := strings.Split(data, "\r\n")
+		ruleProto := IpTablesRule{}
+		for index, element := range rules {
+			if len(element) == 0 {
+				continue
+			}
+			rule, err := ruleProto.fromProtocol(element)
+			if err != nil {
+				logging.CommonLog().Error("[FirewallRuleList] Error parsing firewall rule: %s\n", err)
+				return responseCmd, err
+			}
+			rule.Id.SetValue(uint64(index))
+			getResponse.AppendRule(rule)
+		}
+		responseCmd = getResponse
 	case device.DeviceCommandRemove:
 		responseCmd = &response.Remove{}
 	}

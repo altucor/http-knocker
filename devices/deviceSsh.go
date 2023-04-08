@@ -56,7 +56,7 @@ func DeviceSshNewFromYaml(value *yaml.Node, protocol IFirewallSshProtocol) (*Dev
 func (ctx *DeviceSsh) Start() error {
 	logging.CommonLog().Info("[deviceSsh] Starting...")
 	ctx.ClientConnect()
-	ctx.SessionStart()
+	// ctx.SessionStart()
 	logging.CommonLog().Info("[deviceSsh] Starting... DONE")
 	return nil
 }
@@ -119,12 +119,12 @@ func (ctx *DeviceSsh) GetType() DeviceType {
 }
 
 func (ctx *DeviceSsh) RunSSHCommandWithReply(cmd string) (string, error) {
+	ctx.SessionStart()
 	output, err := ctx.session.Output(cmd)
 	if err != nil {
-		logging.CommonLog().Error("[deviceSsh] RunSSHCommandWithReply Output error:", err)
+		logging.CommonLog().Error("[deviceSsh] RunSSHCommandWithReply Output error: ", err)
 		return "", err
 	}
-	logging.CommonLog().Debug("[deviceSsh] RunSSHCommandWithReply reply =", string(output))
 	return string(output), nil
 }
 
@@ -138,14 +138,14 @@ func (ctx *DeviceSsh) RunCommandWithReply(command device.IDeviceCommand) (device
 
 	sshStr, err = ctx.protocol.To(command)
 	if err != nil {
-		logging.CommonLog().Error("[deviceSsh] RunCommandWithReply failed to convert cmd to IpTables: %s\n", err)
+		logging.CommonLog().Error("[deviceSsh] RunCommandWithReply failed to convert cmd to IpTables: ", err)
 		return &response.Add{}, err
 	}
 	output, err := ctx.RunSSHCommandWithReply(sshStr)
 	if err != nil {
-		logging.CommonLog().Error("[deviceSsh] RunCommandWithReply failed to execute command: %s\n", err)
+		logging.CommonLog().Error("[deviceSsh] RunCommandWithReply failed to execute command: ", err)
 		return &response.Add{}, err
 	}
-	logging.CommonLog().Info("[deviceSsh] RunCommand reply =", string(output))
+	logging.CommonLog().Info("[deviceSsh] RunCommandWithReply reply = ", string(output))
 	return ctx.protocol.From(output, command.GetType())
 }

@@ -2,140 +2,20 @@ package devices
 
 import (
 	"context"
-	"crypto/sha1"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
-	"sync"
 	"time"
 
 	"github.com/altucor/http-knocker/device"
 	"github.com/altucor/http-knocker/device/command"
-	"github.com/altucor/http-knocker/device/response"
-	"github.com/altucor/http-knocker/firewallCommon"
 	"github.com/altucor/http-knocker/logging"
 	"gopkg.in/yaml.v3"
 
 	"github.com/gorilla/mux"
 )
-
-type vfwc uint16
-
-const (
-	VFWC_STATE_PENDING_ADD    vfwc = 1
-	VFWC_STATE_ADDED          vfwc = 2
-	VFWC_STATE_PENDING_REMOVE vfwc = 3
-)
-
-type virtualFirewallCmd struct {
-	id    string
-	cmd   device.IDeviceCommand
-	state vfwc
-}
-
-func (ctx virtualFirewallCmd) toMap() map[string]interface{} {
-	vfcmd := make(map[string]interface{})
-	vfcmd["id"] = ctx.id
-	vfcmd["command"] = ctx.cmd.ToMap()
-	return vfcmd
-}
-
-type virtualFirewall struct {
-	mu    sync.Mutex
-	cmds  []virtualFirewallCmd
-	rules []firewallCommon.FirewallRule
-}
-
-/*
-Important:
-Instead of storing rules in to virtual firewall.
-Save actual commands in virtual firewall state.
-Because communication with remote client should be with commands, not rules
-Remote client should know how to interpret commands in rules
-and how to execute commands for custom firewall
-*/
-
-func generateCmdId() string {
-	h := sha1.New()
-	h.Write([]byte(time.Now().String()))
-	return fmt.Sprintf("%x", h.Sum(nil))
-}
-
-func (ctx *virtualFirewall) Add(cmd command.Add) (*response.Add, error) {
-	// Should add new commands to pending list until they will be accepted by remote firewall
-	ctx.mu.Lock()
-	defer ctx.mu.Unlock()
-	ctx.cmds = append(ctx.cmds, virtualFirewallCmd{
-		id:    generateCmdId(),
-		cmd:   cmd,
-		state: VFWC_STATE_PENDING_ADD,
-	})
-	return &response.Add{}, nil
-}
-
-func (ctx *virtualFirewall) Get(cmd command.Get) (*response.Get, error) {
-	// Should return with list of accepted virtual firewall rules
-	ctx.mu.Lock()
-	defer ctx.mu.Unlock()
-	return response.GetFromRuleList(ctx.rules)
-}
-
-func (ctx *virtualFirewall) Remove(cmd command.Remove) (*response.Remove, error) {
-	// Should mark rules from accepted list as pending for removal, but not remove them
-	// Only really remove them when remote firewall will approve this
-	ctx.mu.Lock()
-	defer ctx.mu.Unlock()
-	ctx.cmds = append(ctx.cmds, virtualFirewallCmd{
-		id:    generateCmdId(),
-		cmd:   cmd,
-		state: VFWC_STATE_PENDING_ADD,
-	})
-	return &response.Remove{}, nil
-}
-
-func (ctx *virtualFirewall) getLastUpdates(count uint64) (string, error) {
-	// Here we respond only with pending changes for remote firewall
-	ctx.mu.Lock()
-	defer ctx.mu.Unlock()
-	var cmds []map[string]interface{}
-	for _, item := range ctx.cmds {
-		if count != 0 && uint64(len(cmds)) >= count {
-			break
-		}
-		cmds = append(cmds, item.toMap())
-	}
-	jsonBytes, err := json.Marshal(cmds)
-	if err != nil {
-		return "", err
-	}
-
-	return string(jsonBytes), nil
-}
-
-func (ctx *virtualFirewall) acceptUpdates(acceptedRules []string) error {
-	ctx.mu.Lock()
-	defer ctx.mu.Unlock()
-	for _, acceptedRule := range acceptedRules {
-		for i, item := range ctx.cmds {
-			if item.id == acceptedRule {
-				// TODO: Here remove cmd and break cycle
-				ctx.cmds = append(ctx.cmds[:i], ctx.cmds[i+1:]...)
-				break
-			}
-		}
-	}
-	return nil
-}
-
-func (ctx *virtualFirewall) pushRuleSet(rules []firewallCommon.FirewallRule) error {
-	ctx.mu.Lock()
-	defer ctx.mu.Unlock()
-	// TODO: Here overwrite rule set with rules from remote firewall
-	ctx.rules = rules
-	return nil
-}
 
 /*
 Interface for web side:
@@ -210,7 +90,7 @@ type DevicePuller struct {
 	config        ConnectionPuller
 	server        *http.Server
 	router        *mux.Router
-	firewallState virtualFirewall
+	firewallState VirtualFirewall
 }
 
 func (ctx *DevicePuller) getLastUpdates(w http.ResponseWriter, r *http.Request) {
@@ -227,69 +107,70 @@ func (ctx *DevicePuller) getLastUpdates(w http.ResponseWriter, r *http.Request) 
 			itemsCount = count
 		}
 	}
-	rules, err := ctx.firewallState.getLastUpdates(itemsCount)
+	commands, err := ctx.firewallState.getLastPendingCommands(itemsCount)
 	if err != nil {
 		logging.CommonLog().Info("[devicePuller] error preparing getLastUpdates")
 		w.WriteHeader(http.StatusServiceUnavailable)
 		return
 	}
 	w.WriteHeader(http.StatusOK)
-	fmt.Fprintf(w, "%s", rules)
+	fmt.Fprintf(w, "%s", commands)
+}
+
+func (ctx *DevicePuller) setErrorCode(w http.ResponseWriter, errCode int, err error) {
+	logging.CommonLog().Error(err)
+	w.WriteHeader(errCode)
+	fmt.Fprintf(w, "%d\n", errCode)
+}
+
+func (ctx *DevicePuller) getDataFromRequest(w http.ResponseWriter,
+	r *http.Request, formKey string, jsonStruct any) error {
+	if err := r.ParseForm(); err != nil {
+		logging.CommonLog().Debug("ParseForm() err: ", err)
+		return err
+	}
+	formValueData := r.FormValue(formKey)
+	logging.CommonLog().Debug("formValueData: ", formValueData)
+	err := json.Unmarshal([]byte(formValueData), jsonStruct)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func (ctx *DevicePuller) acceptUpdates(w http.ResponseWriter, r *http.Request) {
 	logging.CommonLog().Info("[devicePuller] called acceptUpdates")
 	// Here mark rules with accepted statuses
-	if err := r.ParseForm(); err != nil {
-		logging.CommonLog().Debugf("ParseForm() err: %v", err)
-		return
-	}
-	acceptedRulesJson := r.FormValue("accepted_rules")
-	logging.CommonLog().Debugf("Accepted rules: %s", acceptedRulesJson)
 	var acceptedRules []string
-	err := json.Unmarshal([]byte(r.FormValue("accepted_rules")), &acceptedRules)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+	if err := ctx.getDataFromRequest(w, r, "rules", &acceptedRules); err != nil {
+		ctx.setErrorCode(w, 400, err)
 		return
 	}
-	logging.CommonLog().Debugf("Accepted rules: %v", acceptedRules)
-	err = ctx.firewallState.acceptUpdates(acceptedRules)
+	logging.CommonLog().Debug("Accepted rules: ", acceptedRules)
+	err := ctx.firewallState.processAcceptedCommands(acceptedRules)
 	if err != nil {
-		logging.CommonLog().Error(err)
-		w.WriteHeader(http.StatusServiceUnavailable)
-		fmt.Fprintf(w, "500\n")
+		ctx.setErrorCode(w, 500, err)
 		return
 	}
 	w.WriteHeader(http.StatusOK)
 }
 
-func (ctx *DevicePuller) pushRulesSet(w http.ResponseWriter, r *http.Request) {
-	// TODO: After fixing firewall rule interface, check this parsing
-	logging.CommonLog().Info("[devicePuller] called pushRulesSet")
-	if err := r.ParseForm(); err != nil {
-		logging.CommonLog().Debugf("ParseForm() err: %v", err)
-		return
-	}
-	frwRulesJson := r.FormValue("rules")
-	logging.CommonLog().Debugf("Frw rules: %s", frwRulesJson)
-	var frwRules []firewallCommon.FirewallRule
-	err := json.Unmarshal([]byte(r.FormValue("rules")), &frwRules)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-	logging.CommonLog().Debugf("Frw rules: %s", frwRules)
-	err = ctx.firewallState.pushRuleSet(frwRules)
-	if err != nil {
-		logging.CommonLog().Error(err)
-		w.WriteHeader(http.StatusServiceUnavailable)
-		fmt.Fprintf(w, "500\n")
-		return
-	}
-	w.WriteHeader(http.StatusOK)
-
-	return
-}
+// func (ctx *DevicePuller) pushRulesSet(w http.ResponseWriter, r *http.Request) {
+// 	// TODO: After fixing firewall rule interface, check this parsing
+// 	logging.CommonLog().Info("[devicePuller] called pushRulesSet")
+// 	var frwRules []firewallCommon.FirewallRule
+// 	if err := ctx.getDataFromRequest(w, r, "rules", &frwRules); err != nil {
+// 		ctx.setErrorCode(w, 400, err)
+// 		return
+// 	}
+// 	logging.CommonLog().Debug("Frw rules: ", frwRules)
+// 	err := ctx.firewallState.pushRuleSet(frwRules)
+// 	if err != nil {
+// 		ctx.setErrorCode(w, 500, err)
+// 		return
+// 	}
+// 	w.WriteHeader(http.StatusOK)
+// }
 
 func http_not_found_handler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotFound)
@@ -316,7 +197,7 @@ func DevicePullerNew(cfg ConnectionPuller) *DevicePuller {
 	pullerRouter := ctx.router.PathPrefix(ctx.config.Endpoint).Subrouter()
 	pullerRouter.HandleFunc("/getLastUpdates", ctx.getLastUpdates).Methods("GET")
 	pullerRouter.HandleFunc("/acceptUpdates", ctx.acceptUpdates).Methods("POST")
-	pullerRouter.HandleFunc("/pushRulesSet", ctx.pushRulesSet).Methods("POST")
+	// pullerRouter.HandleFunc("/pushRulesSet", ctx.pushRulesSet).Methods("POST")
 	return ctx
 }
 

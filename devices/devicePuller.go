@@ -11,6 +11,7 @@ import (
 
 	"github.com/altucor/http-knocker/device"
 	"github.com/altucor/http-knocker/device/command"
+	"github.com/altucor/http-knocker/firewallCommon"
 	"github.com/altucor/http-knocker/logging"
 	"gopkg.in/yaml.v3"
 
@@ -114,6 +115,7 @@ func (ctx *DevicePuller) getLastUpdates(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	w.WriteHeader(http.StatusOK)
+	logging.CommonLog().Debugf("Commands for update %s", commands)
 	fmt.Fprintf(w, "%s", commands)
 }
 
@@ -155,22 +157,22 @@ func (ctx *DevicePuller) acceptUpdates(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-// func (ctx *DevicePuller) pushRulesSet(w http.ResponseWriter, r *http.Request) {
-// 	// TODO: After fixing firewall rule interface, check this parsing
-// 	logging.CommonLog().Info("[devicePuller] called pushRulesSet")
-// 	var frwRules []firewallCommon.FirewallRule
-// 	if err := ctx.getDataFromRequest(w, r, "rules", &frwRules); err != nil {
-// 		ctx.setErrorCode(w, 400, err)
-// 		return
-// 	}
-// 	logging.CommonLog().Debug("Frw rules: ", frwRules)
-// 	err := ctx.firewallState.pushRuleSet(frwRules)
-// 	if err != nil {
-// 		ctx.setErrorCode(w, 500, err)
-// 		return
-// 	}
-// 	w.WriteHeader(http.StatusOK)
-// }
+func (ctx *DevicePuller) pushRulesSet(w http.ResponseWriter, r *http.Request) {
+	// TODO: After fixing firewall rule interface, check this parsing
+	logging.CommonLog().Info("[devicePuller] called pushRulesSet")
+	var frwRules []firewallCommon.FirewallRule
+	if err := ctx.getDataFromRequest(w, r, "rules", &frwRules); err != nil {
+		ctx.setErrorCode(w, 400, err)
+		return
+	}
+	logging.CommonLog().Debug("Frw rules: ", frwRules)
+	err := ctx.firewallState.pushRuleSet(frwRules)
+	if err != nil {
+		ctx.setErrorCode(w, 500, err)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+}
 
 func http_not_found_handler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotFound)
@@ -194,10 +196,10 @@ func DevicePullerNew(cfg ConnectionPuller) *DevicePuller {
 		router: mux.NewRouter(),
 	}
 	ctx.router.NotFoundHandler = http.HandlerFunc(http_not_found_handler)
-	pullerRouter := ctx.router.PathPrefix(ctx.config.Endpoint).Subrouter()
+	pullerRouter := ctx.router.PathPrefix("/" + ctx.config.Endpoint).Subrouter()
 	pullerRouter.HandleFunc("/getLastUpdates", ctx.getLastUpdates).Methods("GET")
 	pullerRouter.HandleFunc("/acceptUpdates", ctx.acceptUpdates).Methods("POST")
-	// pullerRouter.HandleFunc("/pushRulesSet", ctx.pushRulesSet).Methods("POST")
+	pullerRouter.HandleFunc("/pushRulesSet", ctx.pushRulesSet).Methods("POST")
 	return ctx
 }
 

@@ -95,28 +95,15 @@ func (ctx *VirtualFirewall) getLastPendingCommands(count uint64) (string, error)
 	return string(jsonBytes), nil
 }
 
-func (ctx *VirtualFirewall) executeAcceptedCommand(i int) error {
-	// Executing this command in to virtual firewall
-	switch ctx.cmds[i].cmd.GetType() {
-	case device.DeviceCommandAdd:
-		ctx.rules = append(ctx.rules, ctx.cmds[i].cmd.(command.Add).GetRule())
-	case device.DeviceCommandGet:
-		// Do nothing
-	case device.DeviceCommandRemove:
-		ctx.rules = append(ctx.rules[:i], ctx.rules[i+1:]...)
-	default:
-	}
-	return nil
-}
-
 func (ctx *VirtualFirewall) processAcceptedCommands(acceptedCommands []string) error {
 	ctx.mu.Lock()
 	defer ctx.mu.Unlock()
 	for _, acceptedCommand := range acceptedCommands {
 		for i, item := range ctx.cmds {
 			if item.id == acceptedCommand {
-				// ctx.executeAcceptedCommand(i)
 				// Removing this command from pending list
+				// No need to emulate execution of command
+				// Result of execution should be received from remote device
 				ctx.cmds = append(ctx.cmds[:i], ctx.cmds[i+1:]...)
 				break
 			}

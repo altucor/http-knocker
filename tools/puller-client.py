@@ -8,6 +8,7 @@ class HttpKnockerPullerClient:
         self.__base = "http://" + host + ":" + str(port) + base_prefix
 
     def get_last_updates(self):
+        print(f"URL: {self.__base}")
         r = requests.get(self.__base + "/getLastUpdates")
         print(f"Status code: {r.status_code}")
         decoded = json.loads(r.text)
@@ -21,30 +22,46 @@ class HttpKnockerPullerClient:
             data={
                 'accepted_rules': json.dumps(accepted_rule_ids)
         })
-        r.text
+        print(r.text)
 
-class IpTablesExecutor:
-    def __init__(self, rule):
-        self.__rule = rule
+    def push_frw_rules(self, rules_set):
+        print(rules_set)
+        r = requests.post(
+            self.__base + "/pushRulesSet", 
+            data={
+                'rules': json.dumps(rules_set)
+        })
+        print(r.text)
+
+
+class IpTablesController:
+    def __init__(self):
         pass
 
-    def execute(self):
-        print(f"Executed rule: {self.__rule}")
+    def execute(self, rule):
+        print(f"Executed rule: {rule}")
         return True
+
+    def get_rules(self):
+        rules = ""
+        # Here parse rules from cli output
+        return rules
 
 def main():
     httpKnocker = HttpKnockerPullerClient("127.0.0.1", 8001, "/puller/test")
+    ipTables = IpTablesController()
 
     while True:
-        time.sleep(1)
+        time.sleep(5)
+        httpKnocker.push_frw_rules(ipTables.get_rules())
         accepted_rules = []
         rules = httpKnocker.get_last_updates()
-        if rules is None:
+        if rules is None or rules == "":
             continue
         print(f"Rules arr size: {len(rules)}")
         for rule in rules:
             # If rule successfully executed then add it's id to accepted list
-            if IpTablesExecutor(rule).execute():
+            if ipTables.execute(rule):
                 accepted_rules.append(rule["id"])
         httpKnocker.accept_updates(accepted_rules)
 

@@ -1,3 +1,4 @@
+import re
 import time
 import json
 import requests
@@ -40,6 +41,36 @@ def run_shell_cmd(*args):
     )
     return result
 
+class IpTablesRule:
+    def __init__(self):
+        self.__body = {}
+        self.__keys = ["id", "action", "chain", "disabled", 
+                       "protocol", "src-address", "dst-port",
+                       "comment", "place-before"]
+        self.__re = {}
+        self.__re["chain"] = re.compile("-A\s([^\s]+)\s")
+        self.__re["action"] = re.compile("\s-j\s([^\s]+)")
+        self.__re["protocol"] = re.compile("\s-p\s([A-Za-z]+)")
+        self.__re["src-address"] = re.compile("\s-s\s([^\s]+)")
+        self.__re["dst-port"] = re.compile("\s--dport\s([^\s]+)")
+        self.__re["protocol"] = re.compile("-m\s+comment\s+--comment\s+(\"[^\"]*\"|'[^']*'|[^'\"\s]+)")
+        pass
+
+    def __extract_regex_by_key(self, key, input):
+        if key in self.__re:
+            self.__body[key] = self.__re[key].match(input)
+
+    def from_string(self, line):
+        # self.__body["chain"] = self.__re["chain"].match(line)
+        # self.__extract_regex_by_key("chain", line)
+        for key in self.__keys:
+            self.__extract_regex_by_key(key, line)
+        print(f"debug iptables rule: {self.__body}")
+        pass
+
+    def from_dict(self, dict):
+        pass
+
 class IpTablesController:
     def __init__(self):
         pass
@@ -54,7 +85,10 @@ class IpTablesController:
             print(f"Error getting rules {result.stderr}")
         # Here parse rules from cli output
         print(f"stdout rules: {result.stdout.decode('utf-8')}")
-        rules = result.stdout.decode('utf-8').split("\n")
+        rule_lines = result.stdout.decode('utf-8').split("\n")
+        rules = []
+        for line in rule_lines:
+            rules.append(IpTablesRule.from_string(line))
         return rules
 
 def main():

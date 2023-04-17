@@ -34,13 +34,11 @@ class HttpKnockerPullerClient:
         print(f"rule set reponse: {r.text}")
 
 def run_shell_cmd(*args):
-    process = subprocess.Popen(
+    result = subprocess.run(
         args,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE
+        capture_output=True
     )
-    stdout, stderr = process.communicate()
-    return stdout, stderr
+    return result
 
 class IpTablesController:
     def __init__(self):
@@ -51,11 +49,12 @@ class IpTablesController:
         return True
 
     def get_rules(self):
-        stdout, stderr = run_shell_cmd("iptables", "-S", "INPUT")
-        if stderr != "":
-            print("Error getting rules")
+        result = run_shell_cmd("iptables", "-S", "INPUT")
+        if result.returncode != 0:
+            print(f"Error getting rules {result.stderr}")
         # Here parse rules from cli output
-        rules = stdout.split("\n")
+        print(f"stdout rules: {result.stdout.decode('utf-8')}")
+        rules = result.stdout.decode('utf-8').split("\n")
         return rules
 
 def main():

@@ -1,7 +1,7 @@
 import time
 import json
 import requests
-
+import subprocess
 
 class HttpKnockerPullerClient:
     def __init__(self, host: str, port: int, base_prefix: str):
@@ -16,23 +16,31 @@ class HttpKnockerPullerClient:
         return decoded
 
     def accept_updates(self, accepted_rule_ids):
-        print(accepted_rule_ids)
+        print(f"accepted ids: {accepted_rule_ids}")
         r = requests.post(
             self.__base + "/acceptUpdates", 
             data={
                 'accepted_rules': json.dumps(accepted_rule_ids)
         })
-        print(r.text)
+        print(f"accepted response: {r.text}")
 
     def push_frw_rules(self, rules_set):
-        print(rules_set)
+        print(f"rule set: {rules_set}")
         r = requests.post(
             self.__base + "/pushRulesSet", 
             data={
                 'rules': json.dumps(rules_set)
         })
-        print(r.text)
+        print(f"rule set reponse: {r.text}")
 
+def run_shell_cmd(*args):
+    process = subprocess.Popen(
+        args,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE
+    )
+    stdout, stderr = process.communicate()
+    return stdout, stderr
 
 class IpTablesController:
     def __init__(self):
@@ -43,12 +51,15 @@ class IpTablesController:
         return True
 
     def get_rules(self):
-        rules = ""
+        stdout, stderr = run_shell_cmd("iptables", "-S", "INPUT")
+        if stderr != "":
+            print("Error getting rules")
         # Here parse rules from cli output
+        rules = stdout.split("\n")
         return rules
 
 def main():
-    httpKnocker = HttpKnockerPullerClient("127.0.0.1", 8001, "/puller/test")
+    httpKnocker = HttpKnockerPullerClient("http-knocker.altucornet", 8001, "/puller/test")
     ipTables = IpTablesController()
 
     while True:

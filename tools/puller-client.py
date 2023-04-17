@@ -53,20 +53,21 @@ class IpTablesRule:
         self.__re["protocol"] = re.compile("\s-p\s([A-Za-z]+)")
         self.__re["src-address"] = re.compile("\s-s\s([^\s]+)")
         self.__re["dst-port"] = re.compile("\s--dport\s([^\s]+)")
-        self.__re["protocol"] = re.compile("-m\s+comment\s+--comment\s+(\"[^\"]*\"|'[^']*'|[^'\"\s]+)")
-        pass
+        self.__re["comment"] = re.compile("-m\s+comment\s+--comment\s+(\"[^\"]*\"|'[^']*'|[^'\"\s]+)")
+
+    def debug(self):
+        print(f"iptables rule dbg: {self.__body}")
 
     def __extract_regex_by_key(self, key, input):
         if key in self.__re:
-            self.__body[key] = self.__re[key].match(input)
+            match = self.__re[key].search(input)
+            # print(f"match for {key} => {match}")
+            if match != None and len(match.groups()) != 0:
+                self.__body[key] = match.groups()[0]
 
     def from_string(self, line):
-        # self.__body["chain"] = self.__re["chain"].match(line)
-        # self.__extract_regex_by_key("chain", line)
         for key in self.__keys:
             self.__extract_regex_by_key(key, line)
-        print(f"debug iptables rule: {self.__body}")
-        pass
 
     def from_dict(self, dict):
         pass
@@ -88,7 +89,7 @@ class IpTablesController:
         rule_lines = result.stdout.decode('utf-8').split("\n")
         rules = []
         for line in rule_lines:
-            rule = IpTablesRule
+            rule = IpTablesRule()
             rules.append(rule.from_string(line))
         return rules
 
@@ -110,7 +111,21 @@ def main():
                 accepted_rules.append(rule["id"])
         httpKnocker.accept_updates(accepted_rules)
 
-
+def test_parsing():
+    line = "-A INPUT -s 127.0.0.1/32 -p tcp -m tcp --dport 3333 -m comment --comment httpKnocker-basicfirewall-1680912119-dc7fe68f27ff5f2a9fd71b9f06f6e3dd43ea919a -j ACCEPT"
+    rule = IpTablesRule()
+    rule.from_string(line)
+    rule.debug()
 
 if __name__ == "__main__":
     main()
+    # test_parsing()
+
+
+"""
+
+-P INPUT ACCEPT
+-A INPUT -s 127.0.0.1/32 -p tcp -m tcp --dport 3333 -m comment --comment httpKnocker-basicfirewall-1680912119-dc7fe68f27ff5f2a9fd71b9f06f6e3dd43ea919a -j ACCEPT
+-A INPUT -s 0.0.0.0/32 -p tcp -m tcp --dport 2222 -m comment --comment http-knocker-drop-all-rule -j DROP
+
+"""

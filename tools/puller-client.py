@@ -27,10 +27,13 @@ class HttpKnockerPullerClient:
 
     def push_frw_rules(self, rules_set):
         print(f"rule set: {rules_set}")
+        rules_body_dict = []
+        for rule in rules_set:
+            rules_body_dict.append(rule.get())
         r = requests.post(
             self.__base + "/pushRulesSet", 
             data={
-                'rules': json.dumps(rules_set)
+                'rules': json.dumps(rules_body_dict)
         })
         print(f"rule set reponse: {r.text}")
 
@@ -54,6 +57,9 @@ class IpTablesRule:
         self.__re["src-address"] = re.compile("\s-s\s([^\s]+)")
         self.__re["dst-port"] = re.compile("\s--dport\s([^\s]+)")
         self.__re["comment"] = re.compile("-m\s+comment\s+--comment\s+(\"[^\"]*\"|'[^']*'|[^'\"\s]+)")
+
+    def get(self):
+        return self.__body
 
     def debug(self):
         print(f"iptables rule dbg: {self.__body}")

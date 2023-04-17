@@ -88,7 +88,8 @@ class IpTablesController:
         rule_lines = result.stdout.decode('utf-8').split("\n")
         rules = []
         for line in rule_lines:
-            rules.append(IpTablesRule.from_string(line))
+            rule = IpTablesRule
+            rules.append(rule.from_string(line))
         return rules
 
 def main():

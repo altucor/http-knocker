@@ -160,11 +160,20 @@ func (ctx *DevicePuller) acceptUpdates(w http.ResponseWriter, r *http.Request) {
 func (ctx *DevicePuller) pushRulesSet(w http.ResponseWriter, r *http.Request) {
 	// TODO: After fixing firewall rule interface, check this parsing
 	logging.CommonLog().Info("[devicePuller] called pushRulesSet")
-	var frwRules []firewallCommon.FirewallRule
-	if err := ctx.getDataFromRequest(w, r, "rules", &frwRules); err != nil {
+	// var frwRules []firewallCommon.FirewallRule
+	var frwJsonRules []map[string]string
+	if err := ctx.getDataFromRequest(w, r, "rules", &frwJsonRules); err != nil {
 		ctx.setErrorCode(w, 400, err)
 		return
 	}
+
+	var frwRules []firewallCommon.FirewallRule
+	for _, elem := range frwJsonRules {
+		rule := firewallCommon.FirewallRule{}
+		rule.FromMap(elem)
+		frwRules = append(frwRules, rule)
+	}
+
 	logging.CommonLog().Debug("Frw rules: ", frwRules)
 	err := ctx.firewallState.pushRuleSet(frwRules)
 	if err != nil {

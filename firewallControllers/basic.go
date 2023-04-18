@@ -153,7 +153,7 @@ func (ctx *controllerBasic) AddClient(ip_addr firewallField.Address) error {
 	if ctx.controllerCfg.DropRuleComment != "" {
 		dropRuleId, err = ctx.FindRuleIdByComment(ctx.controllerCfg.DropRuleComment)
 		if err != nil {
-			logging.CommonLog().Error("[ControllerBasic] AddClient cannot find drop rule id %d", dropRuleId)
+			logging.CommonLog().Error("[ControllerBasic] AddClient cannot find drop rule id")
 			return err
 		}
 	}

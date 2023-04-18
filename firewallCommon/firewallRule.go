@@ -37,3 +37,33 @@ func (ctx *FirewallRule) ToMap() map[string]string {
 
 	return ruleMap
 }
+
+func (ctx *FirewallRule) FromMap(m map[string]string) {
+	if _, ok := m["id"]; ok {
+		ctx.Id.TryInitFromString(m["id"])
+	}
+	if _, ok := m["action"]; ok {
+		ctx.Action.TryInitFromString(m["action"])
+	}
+	if _, ok := m["chain"]; ok {
+		ctx.Chain.TryInitFromString(m["chain"])
+	}
+	if _, ok := m["disabled"]; ok {
+		ctx.Disabled.TryInitFromString(m["disabled"])
+	}
+	if _, ok := m["protocol"]; ok {
+		ctx.Protocol.TryInitFromString(m["protocol"])
+	}
+	if _, ok := m["src-address"]; ok {
+		ctx.SrcAddress.TryInitFromString(m["src-address"])
+	}
+	if _, ok := m["dst-port"]; ok {
+		ctx.DstPort.TryInitFromString(m["dst-port"])
+	}
+	if _, ok := m["comment"]; ok {
+		ctx.Comment.TryInitFromString(m["comment"])
+	}
+	if _, ok := m["place-before"]; ok {
+		ctx.PlaceBefore.TryInitFromString(m["place-before"])
+	}
+}

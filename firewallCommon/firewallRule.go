@@ -67,3 +67,9 @@ func (ctx *FirewallRule) FromMap(m map[string]string) {
 		ctx.PlaceBefore.TryInitFromString(m["place-before"])
 	}
 }
+
+func FirewallRuleFromMap(m map[string]string) FirewallRule {
+	f := FirewallRule{}
+	f.FromMap(m)
+	return f
+}

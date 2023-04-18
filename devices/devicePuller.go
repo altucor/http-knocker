@@ -169,8 +169,7 @@ func (ctx *DevicePuller) pushRulesSet(w http.ResponseWriter, r *http.Request) {
 
 	var frwRules []firewallCommon.FirewallRule
 	for _, elem := range frwJsonRules {
-		rule := firewallCommon.FirewallRule{}
-		rule.FromMap(elem)
+		rule := firewallCommon.FirewallRuleFromMap(elem)
 		frwRules = append(frwRules, rule)
 	}
 

@@ -21,7 +21,7 @@ class HttpKnockerPullerClient:
         r = requests.post(
             self.__base + "/acceptUpdates", 
             data={
-                'accepted_rules': json.dumps(accepted_rule_ids)
+                'accepted_commands': json.dumps(accepted_rule_ids)
         })
         print(f"accepted response: {r.text}")
 
@@ -76,14 +76,42 @@ class IpTablesRule:
             self.__extract_regex_by_key(key, line)
 
     def from_dict(self, dict):
-        pass
+        for key in self.__keys:
+            self.__body[key] = dict.get(key)
+
+    def get_shell_args(self):
+        args = []
+        args.append(f"{self.__body['chain'].upper()}")
+        # 0 in place-before means that drop rule not found, at least for now...
+        if self.__body["place-before"] is not None and self.__body["place-before"] != "0":
+            args.append(f"{self.__body['place-before']}")
+        args.append("-p")
+        args.append(f"{self.__body['protocol']}")
+        args.append("-s")
+        args.append(f"{self.__body['src-address']}")
+        args.append("--dport")
+        args.append(f"{self.__body['dst-port']}")
+        args.append("-j")
+        args.append(f"{self.__body['action'].upper()}")
+        args.append("-m")
+        args.append("comment")
+        args.append("--comment")
+        args.append(f"{self.__body['comment']}")
+        return args
 
 class IpTablesController:
     def __init__(self):
         pass
 
-    def execute(self, rule):
-        print(f"Executed rule: {rule}")
+    def execute(self, command):
+        print(f"Executed command: {command}")
+        rule = IpTablesRule()
+        rule.from_dict(command["command"]["rule"])
+        args = ["iptables", "-I"] # -I - insert
+        args.extend(rule.get_shell_args())
+        result = run_shell_cmd(*args)
+        if result.returncode != 0:
+            print(f"Error getting rules {result.stderr}")
         return True
 
     def get_rules(self):
@@ -108,14 +136,14 @@ def main():
         time.sleep(5)
         httpKnocker.push_frw_rules(ipTables.get_rules())
         accepted_rules = []
-        rules = httpKnocker.get_last_updates()
-        if rules is None or rules == "":
+        commands = httpKnocker.get_last_updates()
+        if commands is None or commands == "":
             continue
-        print(f"Rules arr size: {len(rules)}")
-        for rule in rules:
+        print(f"Commands arr size: {len(commands)}")
+        for command in commands:
             # If rule successfully executed then add it's id to accepted list
-            if ipTables.execute(rule):
-                accepted_rules.append(rule["id"])
+            if ipTables.execute(command):
+                accepted_rules.append(command["id"])
         httpKnocker.accept_updates(accepted_rules)
 
 def test_parsing():

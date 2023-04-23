@@ -172,8 +172,7 @@ func (ctx *DevicePuller) pushRulesSet(w http.ResponseWriter, r *http.Request) {
 		if len(elem) == 0 {
 			continue
 		}
-		rule := firewallCommon.FirewallRule{}
-		rule.FromMap(elem)
+		rule := firewallCommon.FirewallRuleFromMap(elem)
 		frwRules = append(frwRules, rule)
 	}
 

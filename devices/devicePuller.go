@@ -132,7 +132,7 @@ func (ctx *DevicePuller) getDataFromRequest(w http.ResponseWriter,
 		return err
 	}
 	formValueData := r.FormValue(formKey)
-	logging.CommonLog().Debug("formValueData: ", formValueData)
+	// logging.CommonLog().Debug("formValueData: ", formValueData)
 	err := json.Unmarshal([]byte(formValueData), jsonStruct)
 	if err != nil {
 		return err
@@ -143,13 +143,13 @@ func (ctx *DevicePuller) getDataFromRequest(w http.ResponseWriter,
 func (ctx *DevicePuller) acceptUpdates(w http.ResponseWriter, r *http.Request) {
 	logging.CommonLog().Info("[devicePuller] called acceptUpdates")
 	// Here mark rules with accepted statuses
-	var acceptedRules []string
-	if err := ctx.getDataFromRequest(w, r, "rules", &acceptedRules); err != nil {
+	var acceptedCommands []string
+	if err := ctx.getDataFromRequest(w, r, "accepted_commands", &acceptedCommands); err != nil {
 		ctx.setErrorCode(w, 400, err)
 		return
 	}
-	logging.CommonLog().Debug("Accepted rules: ", acceptedRules)
-	err := ctx.firewallState.processAcceptedCommands(acceptedRules)
+	logging.CommonLog().Debug("Accepted commands: ", acceptedCommands)
+	err := ctx.firewallState.processAcceptedCommands(acceptedCommands)
 	if err != nil {
 		ctx.setErrorCode(w, 500, err)
 		return
@@ -160,11 +160,22 @@ func (ctx *DevicePuller) acceptUpdates(w http.ResponseWriter, r *http.Request) {
 func (ctx *DevicePuller) pushRulesSet(w http.ResponseWriter, r *http.Request) {
 	// TODO: After fixing firewall rule interface, check this parsing
 	logging.CommonLog().Info("[devicePuller] called pushRulesSet")
-	var frwRules []firewallCommon.FirewallRule
-	if err := ctx.getDataFromRequest(w, r, "rules", &frwRules); err != nil {
+	// var frwRules []firewallCommon.FirewallRule
+	var frwJsonRules []map[string]string
+	if err := ctx.getDataFromRequest(w, r, "rules", &frwJsonRules); err != nil {
 		ctx.setErrorCode(w, 400, err)
 		return
 	}
+
+	var frwRules []firewallCommon.FirewallRule
+	for _, elem := range frwJsonRules {
+		if len(elem) == 0 {
+			continue
+		}
+		rule := firewallCommon.FirewallRuleFromMap(elem)
+		frwRules = append(frwRules, rule)
+	}
+
 	logging.CommonLog().Debug("Frw rules: ", frwRules)
 	err := ctx.firewallState.pushRuleSet(frwRules)
 	if err != nil {

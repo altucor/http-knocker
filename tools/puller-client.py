@@ -4,6 +4,7 @@ import json
 import requests
 import subprocess
 
+
 class HttpKnockerPullerClient:
     def __init__(self, host: str, port: int, base_prefix: str):
         self.__base = "http://" + host + ":" + str(port) + base_prefix
@@ -19,10 +20,9 @@ class HttpKnockerPullerClient:
     def accept_updates(self, accepted_rule_ids):
         print(f"accepted ids: {accepted_rule_ids}")
         r = requests.post(
-            self.__base + "/acceptUpdates", 
-            data={
-                'accepted_commands': json.dumps(accepted_rule_ids)
-        })
+            self.__base + "/acceptUpdates",
+            data={"accepted_commands": json.dumps(accepted_rule_ids)},
+        )
         print(f"accepted response: {r.text}")
 
     def push_frw_rules(self, rules_set):
@@ -31,32 +31,39 @@ class HttpKnockerPullerClient:
         for rule in rules_set:
             rules_body_dict.append(rule.get())
         r = requests.post(
-            self.__base + "/pushRulesSet", 
-            data={
-                'rules': json.dumps(rules_body_dict)
-        })
+            self.__base + "/pushRulesSet", data={"rules": json.dumps(rules_body_dict)}
+        )
         print(f"rule set reponse: {r.text}")
 
+
 def run_shell_cmd(*args):
-    result = subprocess.run(
-        args,
-        capture_output=True
-    )
+    result = subprocess.run(args, capture_output=True)
     return result
+
 
 class IpTablesRule:
     def __init__(self):
         self.__body = {}
-        self.__keys = ["id", "action", "chain", "disabled", 
-                       "protocol", "src-address", "dst-port",
-                       "comment", "place-before"]
+        self.__keys = [
+            "id",
+            "action",
+            "chain",
+            "disabled",
+            "protocol",
+            "src-address",
+            "dst-port",
+            "comment",
+            "place-before",
+        ]
         self.__re = {}
         self.__re["chain"] = re.compile("-A\s([^\s]+)\s")
         self.__re["action"] = re.compile("\s-j\s([^\s]+)")
         self.__re["protocol"] = re.compile("\s-p\s([A-Za-z]+)")
         self.__re["src-address"] = re.compile("\s-s\s([^\s]+)")
         self.__re["dst-port"] = re.compile("\s--dport\s([^\s]+)")
-        self.__re["comment"] = re.compile("-m\s+comment\s+--comment\s+(\"[^\"]*\"|'[^']*'|[^'\"\s]+)")
+        self.__re["comment"] = re.compile(
+            "-m\s+comment\s+--comment\s+(\"[^\"]*\"|'[^']*'|[^'\"\s]+)"
+        )
 
     def get(self):
         return self.__body
@@ -83,7 +90,10 @@ class IpTablesRule:
         args = []
         args.append(f"{self.__body['chain'].upper()}")
         # 0 in place-before means that drop rule not found, at least for now...
-        if self.__body["place-before"] is not None and self.__body["place-before"] != "0":
+        if (
+            self.__body["place-before"] is not None
+            and self.__body["place-before"] != "0"
+        ):
             args.append(f"{self.__body['place-before']}")
         args.append("-p")
         args.append(f"{self.__body['protocol']}")
@@ -99,19 +109,43 @@ class IpTablesRule:
         args.append(f"{self.__body['comment']}")
         return args
 
+
 class IpTablesController:
     def __init__(self):
         pass
 
     def execute(self, command):
         print(f"Executed command: {command}")
+        if command["command"]["type"] == "remove":
+            return self.execute_remove(command)
+        elif command["command"]["type"] == "add":
+            return self.execute_insert(command)
+        return False
+
+    def execute_remove(self, command):
+        # iptables --delete INPUT 3
+        # +1 in rule index because numeration starts from 1
+        args = [
+            "iptables",
+            "--delete",
+            "INPUT",
+            f'{command["command"]["id"]+1}',
+        ]  # -I - insert
+        result = run_shell_cmd(*args)
+        if result.returncode != 0:
+            print(f"Error exeuting REMOVE rule {result.stderr}")
+            return False
+        return True
+
+    def execute_insert(self, command):
         rule = IpTablesRule()
         rule.from_dict(command["command"]["rule"])
-        args = ["iptables", "-I"] # -I - insert
+        args = ["iptables", "-I"]  # -I - insert
         args.extend(rule.get_shell_args())
         result = run_shell_cmd(*args)
         if result.returncode != 0:
-            print(f"Error getting rules {result.stderr}")
+            print(f"Error executing INSERT rule {result.stderr}")
+            return False
         return True
 
     def get_rules(self):
@@ -120,7 +154,7 @@ class IpTablesController:
             print(f"Error getting rules {result.stderr}")
         # Here parse rules from cli output
         print(f"stdout rules: {result.stdout.decode('utf-8')}")
-        rule_lines = result.stdout.decode('utf-8').split("\n")
+        rule_lines = result.stdout.decode("utf-8").split("\n")
         rules = []
         for line in rule_lines:
             rule = IpTablesRule()
@@ -128,8 +162,9 @@ class IpTablesController:
             rules.append(rule)
         return rules
 
+
 def main():
-    httpKnocker = HttpKnockerPullerClient("http-knocker.altucornet", 8001, "/puller/test")
+    httpKnocker = HttpKnockerPullerClient("http-knocker.skyline", 8001, "/puller/test")
     ipTables = IpTablesController()
 
     while True:
@@ -146,11 +181,13 @@ def main():
                 accepted_rules.append(command["id"])
         httpKnocker.accept_updates(accepted_rules)
 
+
 def test_parsing():
     line = "-A INPUT -s 127.0.0.1/32 -p tcp -m tcp --dport 3333 -m comment --comment httpKnocker-basicfirewall-1680912119-dc7fe68f27ff5f2a9fd71b9f06f6e3dd43ea919a -j ACCEPT"
     rule = IpTablesRule()
     rule.from_string(line)
     rule.debug()
+
 
 if __name__ == "__main__":
     main()

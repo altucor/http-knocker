@@ -69,7 +69,9 @@ func (ctx ProtocolIpTables) To(cmd device.IDeviceCommand) (string, error) {
 	case device.DeviceCommandGet:
 		cmdData = "iptables -S INPUT"
 	case device.DeviceCommandRemove:
-		cmdData = fmt.Sprintf("iptables --delete INPUT %d", cmd.(command.Remove).GetId())
+		// TODO: Re-Check removing indexes.
+		// Because for PullerDevice numeration of rules starts from 1, NOT FROM 0
+		cmdData = fmt.Sprintf("iptables --delete INPUT %d", cmd.(command.Remove).GetId()+1)
 	}
 	return cmdData, nil
 }

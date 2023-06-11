@@ -4,10 +4,10 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"net/netip"
 	"sync"
 	"time"
 
+	"github.com/altucor/http-knocker/common"
 	"github.com/altucor/http-knocker/device/command"
 	"github.com/altucor/http-knocker/device/response"
 	"github.com/altucor/http-knocker/devices"
@@ -28,8 +28,16 @@ type SafeAddedClientsStorage struct {
 	clients []ClientAdded
 }
 
+type RemoveAnythingMatching struct {
+	OlderThen        common.DurationSeconds `yaml:"older-then"`
+	SameFirewallName bool                   `yaml:"same-firewall-name"`
+	SamePrefix       bool                   `yaml:"same-prefix"`
+}
+
 type ControllerCfg struct {
-	DropRuleComment string `yaml:"drop-rule-comment"`
+	DropRuleComment        string                 `yaml:"drop-rule-comment"`
+	RemoveAnythingMatching RemoveAnythingMatching `yaml:"remove-anything-matching"`
+	UpdateRulesEvery       common.DurationSeconds `yaml:"update-rules-every"`
 }
 
 type controllerBasic struct {
@@ -84,6 +92,7 @@ func (ctx *controllerBasic) SetEndpoint(endpoint *endpoint.Endpoint) {
 
 func (ctx *controllerBasic) Start() error {
 	logging.CommonLog().Info("[ControllerBasic] Starting...")
+	go UpdateRulesEveryThread(ctx)
 	go ClientsWatchdog(ctx)
 	ctx.watchdogRunning = true
 	logging.CommonLog().Info("[ControllerBasic] Starting... DONE")
@@ -95,10 +104,6 @@ func (ctx *controllerBasic) Stop() error {
 	ctx.watchdogRunning = false
 	logging.CommonLog().Info("[ControllerBasic] Stopping... DONE")
 	return nil
-}
-
-func (ctx *controllerBasic) GetEndpoint() endpoint.Endpoint {
-	return *ctx.endpoint
 }
 
 func (ctx *controllerBasic) HttpCallbackAddClient(w http.ResponseWriter, r *http.Request) {
@@ -207,19 +212,6 @@ func (ctx *controllerBasic) FindRuleIdByComment(comment string) (uint64, error) 
 	return 0, errors.New("cannot find target rule")
 }
 
-func (ctx *controllerBasic) IsClientWithAddrExist(ip_addr netip.Addr) (bool, error) {
-	frwRules, err := ctx.GetRules()
-	if err != nil {
-		return false, err
-	}
-	for _, element := range frwRules {
-		if element.SrcAddress.GetValue() == ip_addr {
-			return true, nil
-		}
-	}
-	return false, nil
-}
-
 func (ctx *controllerBasic) GetAddedClientIdsWithTimings() ([]ClientAdded, error) {
 	var clientIds []ClientAdded
 	frwRules, err := ctx.GetRules()
@@ -273,6 +265,14 @@ func (ctx *controllerBasic) InitListOfAddedClients() {
 		ctx.addedClients.clients = clientsAdded
 		ctx.addedClients.mu.Unlock()
 	}
+}
+
+func UpdateRulesEveryThread(firewall *controllerBasic) {
+	if !firewall.watchdogRunning {
+		return
+	}
+	time.Sleep(firewall.controllerCfg.UpdateRulesEvery.GetValue())
+	firewall.needUpdateClientsList = true
 }
 
 func ClientsWatchdog(firewall *controllerBasic) {

@@ -9,20 +9,21 @@ type ActionType uint8
 
 const (
 	ACTION_INVALID ActionType = 0xFF
-	ACCEPT         ActionType = 0
-	DROP           ActionType = 1
-	REJECT         ActionType = 3
-	JUMP           ActionType = 4
-	LOG            ActionType = 5
+	ACTION_ACCEPT  ActionType = 0
+	ACTION_DROP    ActionType = 1
+	ACTION_REJECT  ActionType = 3
+	ACTION_JUMP    ActionType = 4
+	ACTION_LOG     ActionType = 5
 )
 
 var (
 	actionMap = map[ActionType]string{
 		ACTION_INVALID: "<INVALID>",
-		ACCEPT:         "accept",
-		DROP:           "drop",
-		JUMP:           "jump",
-		LOG:            "log",
+		ACTION_ACCEPT:  "accept",
+		ACTION_DROP:    "drop",
+		ACTION_REJECT:  "reject",
+		ACTION_JUMP:    "jump",
+		ACTION_LOG:     "log",
 	}
 )
 
@@ -39,15 +40,7 @@ func (ctx *Action) TryInitFromString(param string) error {
 		}
 	}
 	ctx.value = ACTION_INVALID
-	return errors.New("Cannot init from string")
-}
-
-func (ctx *Action) TryInitFromRest(param string) error {
-	return ctx.TryInitFromString(param)
-}
-
-func (ctx *Action) TryInitFromIpTables(param string) error {
-	return ctx.TryInitFromString(param)
+	return errors.New("cannot init from string")
 }
 
 func ActionTypeFromString(chainString string) (Action, error) {
@@ -58,15 +51,7 @@ func ActionTypeFromString(chainString string) (Action, error) {
 		}
 	}
 
-	return Action{value: ACTION_INVALID}, errors.New("Invalid action text name")
-}
-
-func ActionTypeFromValue(value ActionType) (Action, error) {
-	_, ok := actionMap[value]
-	if ok {
-		return Action{value: value}, nil
-	}
-	return Action{value: ACTION_INVALID}, errors.New("Invalid action type value")
+	return Action{value: ACTION_INVALID}, errors.New("invalid action text name")
 }
 
 func (ctx *Action) SetValue(value ActionType) {
@@ -79,12 +64,4 @@ func (ctx Action) GetValue() ActionType {
 
 func (ctx Action) GetString() string {
 	return actionMap[ctx.value]
-}
-
-func (ctx Action) MarshalRest() string {
-	return actionMap[ctx.value]
-}
-
-func (ctx Action) MarshalIpTables() string {
-	return strings.ToUpper(actionMap[ctx.value])
 }

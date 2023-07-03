@@ -1,13 +1,10 @@
 package firewallCommon
 
 import (
-	"encoding/json"
-	"fmt"
-	"regexp"
-
 	"github.com/altucor/http-knocker/firewallCommon/firewallField"
-	"github.com/altucor/http-knocker/logging"
 )
+
+const RULE_ID_INVALID = 0xFFFFFFFFFFFFFFFF
 
 type FirewallRule struct {
 	Id          firewallField.Number
@@ -24,114 +21,55 @@ type FirewallRule struct {
 	PlaceBefore firewallField.Number
 }
 
-func FirewallRuleNew() FirewallRule {
-	frwRule := FirewallRule{
-		Id:          firewallField.Number{},
-		Action:      firewallField.Action{},
-		Chain:       firewallField.Chain{},
-		Disabled:    firewallField.Bool{},
-		Protocol:    firewallField.Protocol{},
-		SrcAddress:  firewallField.Address{},
-		DstPort:     firewallField.Port{},
-		Comment:     firewallField.Text{},
-		Detail:      firewallField.Text{},
-		ErrorCmd:    firewallField.Number{},
-		Message:     firewallField.Text{},
-		PlaceBefore: firewallField.Number{},
-	}
-	return frwRule
-}
-
-func FirewallRuleNewFromRestMap(data map[string]string) (FirewallRule, error) {
-	frwRule := FirewallRuleNew()
-	for key, element := range data {
-		switch key {
-		case ".id":
-			frwRule.Id.TryInitFromRest(element)
-		case "action":
-			frwRule.Action.TryInitFromRest(element)
-		case "chain":
-			frwRule.Chain.TryInitFromRest(element)
-		case "disabled":
-			frwRule.Disabled.TryInitFromRest(element)
-		case "protocol":
-			frwRule.Protocol.TryInitFromRest(element)
-		case "src-address":
-			frwRule.SrcAddress.TryInitFromRest(element)
-		case "dst-port":
-			frwRule.DstPort.TryInitFromRest(element)
-		case "comment":
-			frwRule.Comment.TryInitFromRest(element)
-		case "detail":
-			frwRule.Detail.TryInitFromRest(element)
-		case "error":
-			frwRule.ErrorCmd.TryInitFromRest(element)
-		case "message":
-			frwRule.Message.TryInitFromRest(element)
-		}
-	}
-
-	return frwRule, nil
-}
-
-func iptablesParseParamViaRegex(rule string, frwParam IFirewallField, re string) {
-	res := regexp.MustCompile(re).FindStringSubmatch(rule)
-	if len(res) < 2 {
-		return
-	}
-	if res[1] != "" {
-		frwParam.TryInitFromIpTables(res[1])
-	}
-}
-
-func FirewallRuleNewFromIpTables(rule string) (FirewallRule, error) {
-	// Regex strings from: https://www.npmjs.com/package/@wkronmiller/iptables-parser?activeTab=explore
-	frwRule := FirewallRuleNew()
-	iptablesParseParamViaRegex(rule, &frwRule.Chain, `-A\s([^\s]+)\s`)
-	iptablesParseParamViaRegex(rule, &frwRule.Action, `\s-j\s([^\s]+)`)
-	iptablesParseParamViaRegex(rule, &frwRule.Protocol, `\s-p\s([A-Za-z]+)`)
-	iptablesParseParamViaRegex(rule, &frwRule.SrcAddress, `\s-s\s([^\s]+)`)
-	iptablesParseParamViaRegex(rule, &frwRule.DstPort, `\s--dport\s([^\s]+)`)
-	iptablesParseParamViaRegex(rule, &frwRule.Comment, `-m\s+comment\s+--comment\s+("[^"]*"|'[^']*'|[^'"\s]+)`)
-
-	return frwRule, nil
-}
-
-func (ctx *FirewallRule) ToRest() (string, error) {
-	jsonMap := make(map[string]string)
+func (ctx *FirewallRule) ToMap() map[string]string {
+	ruleMap := make(map[string]string)
 	if ctx.Id.GetValue() != RULE_ID_INVALID {
-		jsonMap[".id"] = ctx.Id.MarshalRest()
+		ruleMap["id"] = ctx.Id.GetString()
 	}
-	jsonMap["action"] = ctx.Action.MarshalRest()
-	jsonMap["chain"] = ctx.Chain.MarshalRest()
-	jsonMap["disabled"] = ctx.Disabled.MarshalRest()
-	jsonMap["protocol"] = ctx.Protocol.MarshalRest()
-	jsonMap["src-address"] = ctx.SrcAddress.MarshalRest()
-	jsonMap["dst-port"] = ctx.DstPort.MarshalRest()
-	jsonMap["comment"] = ctx.Comment.MarshalRest()
-	jsonMap["place-before"] = ctx.PlaceBefore.MarshalRest()
+	ruleMap["action"] = ctx.Action.GetString()
+	ruleMap["chain"] = ctx.Chain.GetString()
+	ruleMap["disabled"] = ctx.Disabled.GetString()
+	ruleMap["protocol"] = ctx.Protocol.GetString()
+	ruleMap["src-address"] = ctx.SrcAddress.GetString()
+	ruleMap["dst-port"] = ctx.DstPort.GetString()
+	ruleMap["comment"] = ctx.Comment.GetString()
+	ruleMap["place-before"] = ctx.PlaceBefore.GetString()
 
-	jsonBytes, err := json.Marshal(jsonMap)
-	if err != nil {
-		logging.CommonLog().Error("[FirewallRule] Error marshaling to json: %s\n", err)
-		return "", err
-	}
-
-	return string(jsonBytes), nil
+	return ruleMap
 }
 
-func (ctx *FirewallRule) ToIpTables() (string, error) {
-	// iptables -I INPUT 2 -p tcp -s 10.1.1.2 --dport 22 -j ACCEPT -m comment --comment "My comments here"
-	var result string = "iptables -t filter "
-	result += "-I " + ctx.Chain.MarshalIpTables() + " "
-	if ctx.PlaceBefore.GetValue() != RULE_ID_INVALID {
-		result += fmt.Sprintf("%d", ctx.PlaceBefore.GetValue()) + " "
+func (ctx *FirewallRule) FromMap(m map[string]string) {
+	if _, ok := m["id"]; ok {
+		ctx.Id.TryInitFromString(m["id"])
 	}
-	result += "-p " + ctx.Protocol.MarshalIpTables() + " "
-	result += "-s " + ctx.SrcAddress.MarshalIpTables() + " "
-	result += "--dport " + fmt.Sprintf("%d", ctx.DstPort.GetValue()) + " "
-	result += "-j " + ctx.Action.MarshalIpTables() + " "
-	result += "-m comment --comment \"" + ctx.Comment.MarshalIpTables() + "\""
+	if _, ok := m["action"]; ok {
+		ctx.Action.TryInitFromString(m["action"])
+	}
+	if _, ok := m["chain"]; ok {
+		ctx.Chain.TryInitFromString(m["chain"])
+	}
+	if _, ok := m["disabled"]; ok {
+		ctx.Disabled.TryInitFromString(m["disabled"])
+	}
+	if _, ok := m["protocol"]; ok {
+		ctx.Protocol.TryInitFromString(m["protocol"])
+	}
+	if _, ok := m["src-address"]; ok {
+		ctx.SrcAddress.TryInitFromString(m["src-address"])
+	}
+	if _, ok := m["dst-port"]; ok {
+		ctx.DstPort.TryInitFromString(m["dst-port"])
+	}
+	if _, ok := m["comment"]; ok {
+		ctx.Comment.TryInitFromString(m["comment"])
+	}
+	if _, ok := m["place-before"]; ok {
+		ctx.PlaceBefore.TryInitFromString(m["place-before"])
+	}
+}
 
-	return result, nil
+func FirewallRuleFromMap(m map[string]string) FirewallRule {
+	f := FirewallRule{}
+	f.FromMap(m)
+	return f
 }

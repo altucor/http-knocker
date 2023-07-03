@@ -66,5 +66,5 @@ endpoints:
 knocks:
   knock-second:
     firewall: firewall-rest-test
-    enpoint: endpoint-second
+    endpoint: endpoint-second
 </pre>

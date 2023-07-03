@@ -1,9 +1,7 @@
 package firewallCommon
 
+// TODO: Resolve import loop
 type IFirewallField interface {
-	TryInitFromRest(param string) error
-	TryInitFromIpTables(param string) error
+	TryInitFromString(param string) error
 	GetString() string
-	MarshalRest() string
-	MarshalIpTables() string
 }

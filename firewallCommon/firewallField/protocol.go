@@ -325,15 +325,7 @@ func (ctx *Protocol) TryInitFromString(param string) error {
 		}
 	}
 	ctx.value = PROTOCOL_INVALID
-	return errors.New("Cannot init from string")
-}
-
-func (ctx *Protocol) TryInitFromRest(param string) error {
-	return ctx.TryInitFromString(param)
-}
-
-func (ctx *Protocol) TryInitFromIpTables(param string) error {
-	return ctx.TryInitFromString(param)
+	return errors.New("cannot init from string")
 }
 
 func ProtocolTypeFromString(protocolString string) (Protocol, error) {
@@ -344,15 +336,7 @@ func ProtocolTypeFromString(protocolString string) (Protocol, error) {
 		}
 	}
 
-	return Protocol{value: PROTOCOL_INVALID}, errors.New("Invalid protocol text name")
-}
-
-func ProtocolTypeFromValue(value ProtocolType) (Protocol, error) {
-	_, ok := protocolsMap[value]
-	if ok {
-		return Protocol{value: value}, nil
-	}
-	return Protocol{value: PROTOCOL_INVALID}, errors.New("Invalid protocol type value")
+	return Protocol{value: PROTOCOL_INVALID}, errors.New("invalid protocol text name")
 }
 
 func (ctx *Protocol) SetValue(protocol ProtocolType) {
@@ -364,13 +348,5 @@ func (ctx *Protocol) GetValue() ProtocolType {
 }
 
 func (ctx Protocol) GetString() string {
-	return protocolsMap[ctx.value]
-}
-
-func (ctx Protocol) MarshalRest() string {
-	return protocolsMap[ctx.value]
-}
-
-func (ctx Protocol) MarshalIpTables() string {
 	return protocolsMap[ctx.value]
 }

@@ -39,14 +39,6 @@ func (ctx *Chain) TryInitFromString(param string) error {
 	return errors.New("Cannot init from string")
 }
 
-func (ctx *Chain) TryInitFromRest(param string) error {
-	return ctx.TryInitFromString(param)
-}
-
-func (ctx *Chain) TryInitFromIpTables(param string) error {
-	return ctx.TryInitFromString(param)
-}
-
 func ChainTypeFromString(chainString string) (Chain, error) {
 	chainString = strings.ToLower(chainString)
 	for key, value := range chainMap {
@@ -56,14 +48,6 @@ func ChainTypeFromString(chainString string) (Chain, error) {
 	}
 
 	return Chain{value: INVALID}, errors.New("Invalid chain text name")
-}
-
-func ChainTypeFromValue(value ChainType) (Chain, error) {
-	_, ok := chainMap[value]
-	if ok {
-		return Chain{value: value}, nil
-	}
-	return Chain{value: INVALID}, errors.New("Invalid protocol type value")
 }
 
 func (ctx *Chain) SetValue(value ChainType) {
@@ -76,12 +60,4 @@ func (ctx Chain) GetValue() ChainType {
 
 func (ctx Chain) GetString() string {
 	return chainMap[ctx.value]
-}
-
-func (ctx Chain) MarshalRest() string {
-	return chainMap[ctx.value]
-}
-
-func (ctx Chain) MarshalIpTables() string {
-	return strings.ToUpper(chainMap[ctx.value])
 }

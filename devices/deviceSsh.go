@@ -1,15 +1,15 @@
 package devices
 
 import (
-	"errors"
 	"fmt"
 
-	"github.com/altucor/http-knocker/deviceCommon"
-	"github.com/altucor/http-knocker/deviceResponse"
+	"github.com/altucor/http-knocker/device"
+	"github.com/altucor/http-knocker/device/response"
+	"github.com/altucor/http-knocker/firewallProtocol"
 	"github.com/altucor/http-knocker/logging"
+	"gopkg.in/yaml.v3"
 
 	"golang.org/x/crypto/ssh"
-	"golang.org/x/exp/slices"
 )
 
 type ConnectionSSHCfg struct {
@@ -20,39 +20,56 @@ type ConnectionSSHCfg struct {
 	KnownHosts string `yaml:"knownHosts"`
 }
 
-type DeviceSsh struct {
-	config             ConnectionSSHCfg
-	supportedProtocols []DeviceProtocol
-	client             *ssh.Client
+type IFirewallSshProtocol interface {
+	firewallProtocol.IFirewallProtocol
+	To(cmd device.IDeviceCommand) (string, error)
+	From(responseData string, cmdType device.DeviceCommandType) (device.IDeviceResponse, error)
 }
 
-func DeviceSshNew(cfg DeviceConnectionDesc) *DeviceSsh {
+type DeviceSsh struct {
+	config   ConnectionSSHCfg
+	protocol IFirewallSshProtocol
+	client   *ssh.Client
+	session  *ssh.Session
+}
+
+func DeviceSshNew(cfg ConnectionSSHCfg, protocol IFirewallSshProtocol) *DeviceSsh {
 	ctx := &DeviceSsh{
-		client: nil,
-		supportedProtocols: []DeviceProtocol{
-			PROTOCOL_IP_TABLES,
-		},
-		config: ConnectionSSHCfg{
-			Username:   cfg.Username,
-			Password:   cfg.Password,
-			Host:       cfg.Host,
-			Port:       cfg.Port,
-			KnownHosts: cfg.KnownHosts,
-		},
+		client:   nil,
+		config:   cfg,
+		protocol: protocol,
 	}
 
 	return ctx
 }
 
+func DeviceSshNewFromYaml(value *yaml.Node, protocol IFirewallSshProtocol) (*DeviceSsh, error) {
+	var cfg struct {
+		Conn ConnectionSSHCfg `yaml:"connection"`
+	}
+	if err := value.Decode(&cfg); err != nil {
+		return nil, err
+	}
+	return DeviceSshNew(cfg.Conn, protocol), nil
+}
+
 func (ctx *DeviceSsh) Start() error {
+	logging.CommonLog().Info("[deviceSsh] Starting...")
+	ctx.ClientConnect()
+	// ctx.SessionStart()
+	logging.CommonLog().Info("[deviceSsh] Starting... DONE")
 	return nil
 }
 
 func (ctx *DeviceSsh) Stop() error {
+	logging.CommonLog().Info("[deviceSsh] Stopping...")
+	ctx.SessionStop()
+	ctx.ClientDisconnect()
+	logging.CommonLog().Info("[deviceSsh] Stopping... DONE")
 	return nil
 }
 
-func (ctx *DeviceSsh) Connect() {
+func (ctx *DeviceSsh) ClientConnect() {
 	logging.CommonLog().Info("[deviceSsh] Connect called")
 	//hostKeyCallback, err := knownhosts.New("/home/debian11/.ssh/known_hosts")
 	//if err != nil {
@@ -72,79 +89,59 @@ func (ctx *DeviceSsh) Connect() {
 	ctx.client = sshConnection
 }
 
-func (ctx *DeviceSsh) Disconnect() {
+func (ctx *DeviceSsh) ClientDisconnect() {
 	logging.CommonLog().Info("[deviceSsh] Disconnect called")
 	ctx.client.Close()
 }
 
-func (ctx *DeviceSsh) GetSupportedProtocols() []DeviceProtocol {
-	return ctx.supportedProtocols
-}
-
-func (ctx *DeviceSsh) GetType() DeviceType {
-	return DeviceTypeSsh
-}
-
-func (ctx *DeviceSsh) RunSSHCommandWithReply(cmd string) (string, error) {
-	ctx.Connect()
-	defer ctx.Disconnect()
-	logging.CommonLog().Info("[deviceSsh] RunSSHCommandWithReply called with =", cmd)
-	session, err := ctx.client.NewSession()
+func (ctx *DeviceSsh) SessionStart() {
+	var err error = nil
+	ctx.session, err = ctx.client.NewSession()
 	if err != nil {
 		logging.CommonLog().Error("[deviceSsh] RunSSHCommandWithReply NewSession error:", err)
-		return "", err
 	}
-	defer session.Close()
-
 	// configure terminal mode
 	modes := ssh.TerminalModes{
 		ssh.ECHO: 0, // supress echo
 	}
 	// run terminal session
-	if err := session.RequestPty("xterm", 50, 80, modes); err != nil {
+	if err := ctx.session.RequestPty("xterm", 50, 80, modes); err != nil {
 		logging.CommonLog().Error("[deviceSsh] RunSSHCommandWithReply RequestPty error:", err)
-		return "", err
 	}
-	// start remote shell
-	output, err := session.Output(cmd)
+}
+
+func (ctx *DeviceSsh) SessionStop() {
+	ctx.session.Close()
+}
+
+func (ctx *DeviceSsh) RunSSHCommandWithReply(cmd string) (string, error) {
+	ctx.SessionStart()
+	output, err := ctx.session.Output(cmd)
 	if err != nil {
-		logging.CommonLog().Error("[deviceSsh] RunSSHCommandWithReply Output error:", err)
+		logging.CommonLog().Error("[deviceSsh] RunSSHCommandWithReply Output error: ", err)
 		return "", err
 	}
-	logging.CommonLog().Debug("[deviceSsh] RunSSHCommandWithReply reply =", string(output))
 	return string(output), nil
 }
 
-func (ctx *DeviceSsh) RunCommandWithReply(command deviceCommon.IDeviceCommand, proto DeviceProtocol) (deviceCommon.IDeviceResponse, error) {
-	if !slices.Contains(ctx.supportedProtocols, proto) {
-		return nil, errors.New(fmt.Sprintf("[deviceSsh] RunCommandWithReply: Error not supported protocol: %s", proto))
-	}
-	var ipTablesStr string = ""
+func (ctx *DeviceSsh) RunCommandWithReply(command device.IDeviceCommand) (device.IDeviceResponse, error) {
+	var sshStr string = ""
 	var err error = nil
-	switch proto {
-	case PROTOCOL_IP_TABLES:
-		ipTablesStr, err = command.IpTables()
+
+	if ctx.protocol == nil {
+		return nil, fmt.Errorf("protocol is not set")
 	}
+
+	sshStr, err = ctx.protocol.To(command)
 	if err != nil {
-		logging.CommonLog().Error("[deviceSsh] RunCommandWithReply failed to convert cmd to IpTables: %s\n", err)
-		return deviceResponse.Add{}, err
+		logging.CommonLog().Error("[deviceSsh] RunCommandWithReply failed to convert cmd to IpTables: ", err)
+		return &response.Add{}, err
 	}
-	output, err := ctx.RunSSHCommandWithReply(ipTablesStr)
+	output, err := ctx.RunSSHCommandWithReply(sshStr)
 	if err != nil {
-		logging.CommonLog().Error("[deviceSsh] RunCommandWithReply failed to execute command: %s\n", err)
-		return deviceResponse.Add{}, err
+		logging.CommonLog().Error("[deviceSsh] RunCommandWithReply failed to execute command: ", err)
+		return &response.Add{}, err
 	}
-	logging.CommonLog().Info("[deviceSsh] RunCommand reply =", string(output))
-	switch command.GetType() {
-	case deviceCommon.DeviceCommandAdd:
-		return deviceResponse.AddFromIpTables(output)
-	case deviceCommon.DeviceCommandGet:
-		return deviceResponse.GetFromIpTables(output)
-	case deviceCommon.DeviceCommandRemove:
-		return deviceResponse.RemoveFromIpTables(output)
-	case deviceCommon.DeviceCommandMove:
-		return deviceResponse.MoveFromIpTables(output)
-	default:
-		return nil, errors.New("[deviceSsh] Unknown response type")
-	}
+	logging.CommonLog().Info("[deviceSsh] RunCommandWithReply reply = ", string(output))
+	return ctx.protocol.From(output, command.GetType())
 }

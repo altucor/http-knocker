@@ -28,5 +28,5 @@ endpoints:
 knocks:
   knock-second:
     firewall: firewall-second
-    enpoint: endpoint-second
+    endpoint: endpoint-second
 </pre>

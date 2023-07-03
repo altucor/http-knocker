@@ -1,28 +1,20 @@
-package deviceCommon
-
-import (
-	"net/http"
-
-	"github.com/altucor/http-knocker/firewallCommon"
-)
+package device
 
 type DeviceCommandType string
 
 const (
 	DeviceCommandGet    DeviceCommandType = "get"
 	DeviceCommandAdd    DeviceCommandType = "add"
-	DeviceCommandMove   DeviceCommandType = "move"
 	DeviceCommandRemove DeviceCommandType = "remove"
 )
 
 type IDeviceCommand interface {
+	ToMap() map[string]interface{}
 	GetType() DeviceCommandType
-	Rest() (string, string, string, error) // Return: method, url, body
-	IpTables() (string, error)
 }
 
 type IDeviceResponse interface {
 	GetType() DeviceCommandType
-	GetRules() firewallCommon.FirewallRuleList
-	Rest(http.Response)
+	SetError(err error)
+	GetError() error
 }

@@ -33,7 +33,7 @@ func (ctx *DurationSeconds) UnmarshalYAML(unmarshal func(interface{}) error) err
 func getValueByRegex(input string, keyAnchor string) (uint64, error) {
 	regexRule, err := regexp.Compile("(\\d+" + keyAnchor + ")")
 	if err != nil {
-		logging.CommonLog().Error("[DurationSeconds] Error compiling regexRule: %s\n", err)
+		logging.CommonLog().Errorf("[DurationSeconds] Error compiling regexRule: %s\n", err)
 		return 0, err
 	}
 	tempStr := strings.ReplaceAll(regexRule.FindString(input), keyAnchor, "")
@@ -51,17 +51,17 @@ func DurationSecondsFromString(input string) (DurationSeconds, error) {
 	}
 	hours, err := getValueByRegex(input, "h")
 	if err != nil {
-		logging.CommonLog().Error("[DurationSeconds] Error getting hours: %s\n", err)
+		logging.CommonLog().Errorf("[DurationSeconds] Error getting hours: %s\n", err)
 		return DurationSeconds{}, err
 	}
 	minutes, err := getValueByRegex(input, "m")
 	if err != nil {
-		logging.CommonLog().Error("[DurationSeconds] Error getting minutes: %s\n", err)
+		logging.CommonLog().Errorf("[DurationSeconds] Error getting minutes: %s\n", err)
 		return DurationSeconds{}, err
 	}
 	seconds, err := getValueByRegex(input, "s")
 	if err != nil {
-		logging.CommonLog().Error("[DurationSeconds] Error getting seconds: %s\n", err)
+		logging.CommonLog().Errorf("[DurationSeconds] Error getting seconds: %s\n", err)
 		return DurationSeconds{}, err
 	}
 	// duration := DurationSeconds{

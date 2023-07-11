@@ -109,7 +109,7 @@ func (ctx ProtocolRouterOsRest) To(cmd device.IDeviceCommand, baseUrl string) (*
 		restProto := routerOsRestRule{}
 		jsonBytes, err := json.Marshal(restProto.toProtocol(cmd.(command.Add).GetRule()))
 		if err != nil {
-			logging.CommonLog().Error("[ProtocolRouterOsRest] Error marshaling to json: %s\n", err)
+			logging.CommonLog().Error("[ProtocolRouterOsRest] Error marshaling to json:", err)
 			return nil, err
 		}
 		body = string(jsonBytes)
@@ -122,7 +122,7 @@ func (ctx ProtocolRouterOsRest) To(cmd device.IDeviceCommand, baseUrl string) (*
 
 	req, err := http.NewRequest(method, baseUrl+url, bytes.NewReader([]byte(body)))
 	if err != nil {
-		logging.CommonLog().Error("could not create request: %s\n", err)
+		logging.CommonLog().Error("could not create request:", err)
 	}
 	req.Header.Set("content-type", "application/json")
 	return req, nil
@@ -136,7 +136,7 @@ func (ctx ProtocolRouterOsRest) From(
 
 	body, err := ioutil.ReadAll(httpResponse.Body)
 	if err != nil {
-		logging.CommonLog().Error("[ProtocolRouterOsRest] Error reading response body: %s\n", err)
+		logging.CommonLog().Error("[ProtocolRouterOsRest] Error reading response body:", err)
 		return responseCmd, err
 	}
 	if len(body) == 0 {
@@ -146,7 +146,7 @@ func (ctx ProtocolRouterOsRest) From(
 		var jsonErrorData map[string]interface{}
 		err = json.Unmarshal([]byte(body), &jsonErrorData)
 		if err != nil {
-			logging.CommonLog().Error("[ProtocolRouterOsRest] Error unmarshal json to dict: %s\n", err)
+			logging.CommonLog().Error("[ProtocolRouterOsRest] Error unmarshal json to dict:", err)
 			return responseCmd, err
 		}
 		return responseCmd, fmt.Errorf(
@@ -163,7 +163,7 @@ func (ctx ProtocolRouterOsRest) From(
 		var jsonArr []map[string]interface{}
 		err = json.Unmarshal([]byte(body), &jsonArr)
 		if err != nil {
-			logging.CommonLog().Error("[ProtocolRouterOsRest] Error unmarshal json to array: %s\n", err)
+			logging.CommonLog().Error("[ProtocolRouterOsRest] Error unmarshal json to array:", err)
 			return responseCmd, err
 		}
 		getResponse := &response.Get{}
@@ -171,7 +171,7 @@ func (ctx ProtocolRouterOsRest) From(
 		for _, element := range jsonArr {
 			rule, err := restProto.fromProtocol(element)
 			if err != nil {
-				logging.CommonLog().Error("[ProtocolRouterOsRest] Error parsing firewall rule: %s\n", err)
+				logging.CommonLog().Error("[ProtocolRouterOsRest] Error parsing firewall rule:", err)
 				continue
 			}
 			getResponse.AppendRule(rule)

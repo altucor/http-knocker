@@ -30,13 +30,22 @@ func KnockerNewFromConfig(path string) (*Knocker, error) {
 	}
 	bytes, err := ioutil.ReadFile(path)
 	if err != nil {
-		logging.CommonLog().Errorf("[Knocker] Error reading file: %s\n", err)
+		logging.CommonLog().Errorf("[Knocker] Error reading file: %s", err)
 		return knocker, err
 	}
 	err = yaml.Unmarshal(bytes, &knocker)
 	if err != nil {
-		logging.CommonLog().Errorf("[Knocker] Error unmarshaling yaml file: %s\n", err)
+		logging.CommonLog().Errorf("[Knocker] Error unmarshaling yaml file: %s", err)
 		return knocker, err
+	}
+
+	controllerUrls := make(map[string]bool)
+	for _, element := range knocker.Controllers {
+		_, exist := controllerUrls[element.Config.Url]
+		if exist {
+			logging.CommonLog().Fatalf("[Knocker] Error detected several controllers with same URL: %s", element.Config.Url)
+		}
+		controllerUrls[element.Config.Url] = true
 	}
 
 	for _, element := range knocker.Endpoints {
@@ -58,7 +67,7 @@ func KnockerNewFromConfig(path string) (*Knocker, error) {
 }
 
 func (ctx *Knocker) Start() {
-	logging.CommonLog().Info("[knocker] Starting...")
+	logging.CommonLog().Info("[Knocker] Starting...")
 	for _, item := range ctx.Devices {
 		item.Device.Start()
 	}
@@ -66,19 +75,19 @@ func (ctx *Knocker) Start() {
 		item.Controller.Start()
 	}
 	ctx.WebServer.Start()
-	logging.CommonLog().Info("[knocker] Starting... DONE")
+	logging.CommonLog().Info("[Knocker] Starting... DONE")
 }
 
 func (ctx *Knocker) Wait() {
-	logging.CommonLog().Info("[knocker] Waiting...")
+	logging.CommonLog().Info("[Knocker] Waiting...")
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt)
 	<-c
-	logging.CommonLog().Info("[knocker] Waiting... FINISHED")
+	logging.CommonLog().Info("[Knocker] Waiting... FINISHED")
 }
 
 func (ctx *Knocker) Stop() {
-	logging.CommonLog().Info("[knocker] Stopping...")
+	logging.CommonLog().Info("[Knocker] Stopping...")
 	ctx.WebServer.Stop()
 	for _, item := range ctx.Controllers {
 		item.Controller.Stop()
@@ -86,5 +95,5 @@ func (ctx *Knocker) Stop() {
 	for _, item := range ctx.Devices {
 		item.Device.Stop()
 	}
-	logging.CommonLog().Info("[knocker] Stopping... DONE")
+	logging.CommonLog().Info("[Knocker] Stopping... DONE")
 }

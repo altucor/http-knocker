@@ -57,7 +57,7 @@ type controllerBasic struct {
 func ControllerBasicNew(controllerCfg ControllerCfg) *controllerBasic {
 	ctx := controllerBasic{
 		watchdogRunning:       false,
-		name:                  "basicfirewall",
+		name:                  "basicController",
 		prefix:                "httpKnocker",
 		device:                nil,
 		endpoint:              nil,
@@ -145,7 +145,7 @@ func (ctx *controllerBasic) AddClient(ip_addr firewallField.Address) error {
 		if element.SrcAddress == ip_addr {
 			_, err := ctx.device.RunCommandWithReply(command.RemoveNew(element.Id.GetValue()))
 			if err != nil {
-				logging.CommonLog().Error("[ControllerBasic] AddClient error removing client with duplicated src-address: %s", err)
+				logging.CommonLog().Error("[ControllerBasic] AddClient error removing client with duplicated src-address: ", err)
 				return err
 			}
 		}
@@ -168,7 +168,7 @@ func (ctx *controllerBasic) AddClient(ip_addr firewallField.Address) error {
 		ctx.prefix,
 		ctx.name,
 		time.Now(),
-		ctx.endpoint.GetHash(),
+		ctx.endpoint.GetHash(ctx.url),
 	)
 	if err != nil {
 		return err
@@ -182,7 +182,7 @@ func (ctx *controllerBasic) AddClient(ip_addr firewallField.Address) error {
 	)
 	_, err = ctx.device.RunCommandWithReply(frwCmdAdd)
 	if err != nil {
-		logging.CommonLog().Error("[ControllerBasic] Add command execution error: %s", err)
+		logging.CommonLog().Error("[ControllerBasic] Add command execution error:", err)
 		return err
 	}
 	ctx.needUpdateClientsList = true
@@ -223,11 +223,11 @@ func (ctx *controllerBasic) GetAddedClientIdsWithTimings() ([]ClientAdded, error
 		if element.Comment.GetValue() != "" {
 			comment, err := FirewallCommentNewFromString(element.Comment.GetValue(), ctx.delimiterKey)
 			if err != nil {
-				logging.CommonLog().Errorf("Error parsing comment %s", element.Comment.GetValue())
+				logging.CommonLog().Error("Error parsing comment:", element.Comment.GetValue())
 			}
 			if comment.getPrefix() == ctx.prefix &&
-				comment.getFirewallName() == ctx.name &&
-				comment.getEndpointHash() == ctx.endpoint.GetHash() {
+				comment.getControllerName() == ctx.name &&
+				comment.getEndpointHash() == ctx.endpoint.GetHash(ctx.url) {
 				clientIds = append(clientIds, ClientAdded{
 					Id:    element.Id.GetValue(),
 					Added: comment.getTimestamp(),
@@ -245,7 +245,7 @@ func (ctx *controllerBasic) CleanupExpiredClients() error {
 	}
 
 	for _, element := range clients {
-		logging.CommonLog().Info("Rule diff timestamp: %d Max duration: %d", time.Since(element.Added), ctx.endpoint.DurationSeconds.GetValue())
+		logging.CommonLog().Infof("Rule diff timestamp: %d Max duration: %d", time.Since(element.Added), ctx.endpoint.DurationSeconds.GetValue())
 		if time.Since(element.Added) > ctx.endpoint.DurationSeconds.GetValue() {
 			_, err := ctx.device.RunCommandWithReply(command.RemoveNew(element.Id))
 			if err != nil {

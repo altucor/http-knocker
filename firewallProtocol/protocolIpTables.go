@@ -96,7 +96,7 @@ func (ctx ProtocolIpTables) From(data string, cmdType device.DeviceCommandType) 
 			}
 			rule, err := ruleProto.fromProtocol(element)
 			if err != nil {
-				logging.CommonLog().Error("[FirewallRuleList] Error parsing firewall rule: %s\n", err)
+				logging.CommonLog().Error("[FirewallRuleList] Error parsing firewall rule:", err)
 				return responseCmd, err
 			}
 			rule.Id.SetValue(uint64(index))

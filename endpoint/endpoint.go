@@ -57,8 +57,9 @@ func (ctx *Endpoint) RegisterMiddlewares(input http.HandlerFunc) http.HandlerFun
 // 	}
 // }
 
-func (ctx Endpoint) GetHash() string {
+func (ctx Endpoint) GetHash(url string) string {
+	// Do not use here duration field to allow change timeout for already added rules
 	h := sha1.New()
-	h.Write([]byte(fmt.Sprintf("%d", ctx.DurationSeconds) + fmt.Sprint(ctx.Port) + ctx.Protocol.GetString()))
+	h.Write([]byte(fmt.Sprint(ctx.Port) + ctx.Protocol.GetString() + url))
 	return fmt.Sprintf("%x", h.Sum(nil))
 }

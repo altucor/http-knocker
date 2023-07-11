@@ -7,6 +7,8 @@ import (
 
 	"gopkg.in/yaml.v3"
 
+	"github.com/altucor/http-knocker/device/command"
+	"github.com/altucor/http-knocker/device/response"
 	"github.com/altucor/http-knocker/devices"
 	"github.com/altucor/http-knocker/endpoint"
 	"github.com/altucor/http-knocker/firewallControllers"
@@ -66,6 +68,48 @@ func KnockerNewFromConfig(path string) (*Knocker, error) {
 	return knocker, nil
 }
 
+func contains(s []string, str string) bool {
+	for _, v := range s {
+		if v == str {
+			return true
+		}
+	}
+	return false
+}
+
+func (ctx *Knocker) CleanupTrashRules() {
+	knownIdentifiers := make([]string, 0)
+	for _, element := range ctx.Controllers {
+		knownIdentifiers = append(knownIdentifiers, element.Controller.GetHash())
+	}
+
+	for _, dev := range ctx.Devices {
+		deviceResponse, err := dev.Device.RunCommandWithReply(command.GetNew())
+		if err != nil {
+			logging.CommonLog().Error("[Knocker] Error running command 'get rules' on device")
+		}
+		rules := deviceResponse.(*response.Get).GetRules()
+		for _, rule := range rules {
+			commentData, err := firewallControllers.FirewallCommentNewFromString(rule.Comment.GetString(), "-")
+			if err != nil {
+				logging.CommonLog().Error("[Knocker] Error processing firewall rule comment", err)
+				continue
+			}
+			if commentData.GetEndpointHash() == "" {
+				continue
+			}
+
+			if !contains(knownIdentifiers, commentData.GetEndpointHash()) {
+				_, err := dev.Device.RunCommandWithReply(command.RemoveNew(rule.Id.GetValue()))
+				if err != nil {
+					logging.CommonLog().Error("[Knocker] Error removing unrelated rule:", rule)
+				}
+			}
+		}
+	}
+
+}
+
 func (ctx *Knocker) Start() {
 	logging.CommonLog().Info("[Knocker] Starting...")
 	for _, item := range ctx.Devices {
@@ -74,6 +118,7 @@ func (ctx *Knocker) Start() {
 	for _, item := range ctx.Controllers {
 		item.Controller.Start()
 	}
+	ctx.CleanupTrashRules()
 	ctx.WebServer.Start()
 	logging.CommonLog().Info("[Knocker] Starting... DONE")
 }

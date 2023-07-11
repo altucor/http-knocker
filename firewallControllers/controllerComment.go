@@ -53,7 +53,7 @@ func FirewallCommentNewFromString(comment string, delimiterKey string) (controll
 	return commentObj, nil
 }
 
-func (ctx controllerBasicComment) build() string {
+func (ctx controllerBasicComment) Build() string {
 	comment := ctx.prefix + ctx.delimiterKey
 	comment += ctx.controllerName + ctx.delimiterKey
 	comment += fmt.Sprintf("%d", ctx.timestamp.Unix()) + ctx.delimiterKey
@@ -61,18 +61,18 @@ func (ctx controllerBasicComment) build() string {
 	return comment
 }
 
-func (ctx controllerBasicComment) getPrefix() string {
+func (ctx controllerBasicComment) GetPrefix() string {
 	return ctx.prefix
 }
 
-func (ctx controllerBasicComment) getControllerName() string {
+func (ctx controllerBasicComment) GetControllerName() string {
 	return ctx.controllerName
 }
 
-func (ctx controllerBasicComment) getTimestamp() time.Time {
+func (ctx controllerBasicComment) GetTimestamp() time.Time {
 	return ctx.timestamp
 }
 
-func (ctx controllerBasicComment) getEndpointHash() string {
+func (ctx controllerBasicComment) GetEndpointHash() string {
 	return ctx.endpointHash
 }

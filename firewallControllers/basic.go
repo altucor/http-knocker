@@ -90,6 +90,10 @@ func (ctx *controllerBasic) SetEndpoint(endpoint *endpoint.Endpoint) {
 	ctx.endpoint = endpoint
 }
 
+func (ctx *controllerBasic) GetHash() string {
+	return ctx.endpoint.GetHash(ctx.url)
+}
+
 func (ctx *controllerBasic) Start() error {
 	logging.CommonLog().Info("[ControllerBasic] Starting...")
 	go UpdateRulesEveryThread(ctx)
@@ -177,7 +181,7 @@ func (ctx *controllerBasic) AddClient(ip_addr firewallField.Address) error {
 		ip_addr.GetValue(),
 		ctx.endpoint.Port,
 		ctx.endpoint.Protocol.GetValue(),
-		comment.build(),
+		comment.Build(),
 		dropRuleId,
 	)
 	_, err = ctx.device.RunCommandWithReply(frwCmdAdd)
@@ -225,12 +229,12 @@ func (ctx *controllerBasic) GetAddedClientIdsWithTimings() ([]ClientAdded, error
 			if err != nil {
 				logging.CommonLog().Error("Error parsing comment:", element.Comment.GetValue())
 			}
-			if comment.getPrefix() == ctx.prefix &&
-				comment.getControllerName() == ctx.name &&
-				comment.getEndpointHash() == ctx.endpoint.GetHash(ctx.url) {
+			if comment.GetPrefix() == ctx.prefix &&
+				comment.GetControllerName() == ctx.name &&
+				comment.GetEndpointHash() == ctx.endpoint.GetHash(ctx.url) {
 				clientIds = append(clientIds, ClientAdded{
 					Id:    element.Id.GetValue(),
-					Added: comment.getTimestamp(),
+					Added: comment.GetTimestamp(),
 				})
 			}
 		}

@@ -12,6 +12,7 @@ type IController interface {
 	SetUrl(url string)
 	SetDevice(dev devices.IDevice)
 	SetEndpoint(endpoint *endpoint.Endpoint)
+	GetHash() string
 	Start() error
 	Stop() error
 	HttpCallbackAddClient(w http.ResponseWriter, r *http.Request)

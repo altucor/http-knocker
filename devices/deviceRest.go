@@ -1,6 +1,7 @@
 package devices
 
 import (
+	"crypto/tls"
 	"fmt"
 	"net/http"
 
@@ -11,9 +12,10 @@ import (
 )
 
 type ConnectionRest struct {
-	Username string `yaml:"username"`
-	Password string `yaml:"password"`
-	Endpoint string `yaml:"endpoint"`
+	Username           string `yaml:"username"`
+	Password           string `yaml:"password"`
+	Endpoint           string `yaml:"endpoint"`
+	InsecureSkipVerify bool   `yaml:"insecure-skip-verify"`
 }
 
 type IFirewallRestProtocol interface {
@@ -64,7 +66,11 @@ func (ctx *DeviceRest) isAvailable() bool {
 
 func (ctx *DeviceRest) executeRestCommand(request *http.Request) (*http.Response, error) {
 	request.SetBasicAuth(ctx.config.Username, ctx.config.Password)
-	res, err := http.DefaultClient.Do(request)
+	tr := &http.Transport{
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: ctx.config.InsecureSkipVerify},
+	}
+	client := &http.Client{Transport: tr}
+	res, err := client.Do(request)
 	if err != nil {
 		logging.CommonLog().Error("error making http request:", err)
 		return nil, err

@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/altucor/http-knocker/comment"
 	"github.com/altucor/http-knocker/common"
 	"github.com/altucor/http-knocker/device/command"
 	"github.com/altucor/http-knocker/device/response"
@@ -45,7 +46,7 @@ type controllerBasic struct {
 	url                   string
 	prefix                string
 	name                  string
-	device                devices.IDevice
+	deviceController      *devices.DeviceController
 	endpoint              *endpoint.Endpoint
 	controllerCfg         ControllerCfg
 	addedClients          SafeAddedClientsStorage
@@ -59,7 +60,7 @@ func ControllerBasicNew(controllerCfg ControllerCfg) *controllerBasic {
 		watchdogRunning:       false,
 		name:                  "basicController",
 		prefix:                "httpKnocker",
-		device:                nil,
+		deviceController:      nil,
 		endpoint:              nil,
 		controllerCfg:         controllerCfg,
 		delimiterKey:          "-",
@@ -82,8 +83,8 @@ func (ctx *controllerBasic) SetUrl(url string) {
 	ctx.url = url
 }
 
-func (ctx *controllerBasic) SetDevice(dev devices.IDevice) {
-	ctx.device = dev
+func (ctx *controllerBasic) SetDevice(dev *devices.DeviceController) {
+	ctx.deviceController = dev
 }
 
 func (ctx *controllerBasic) SetEndpoint(endpoint *endpoint.Endpoint) {
@@ -147,7 +148,7 @@ func (ctx *controllerBasic) AddClient(ip_addr firewallField.Address) error {
 	for _, element := range frwRules {
 		// TODO: Fix deduplication for SSH
 		if element.SrcAddress == ip_addr {
-			_, err := ctx.device.RunCommandWithReply(command.RemoveNew(element.Id.GetValue()))
+			_, err := ctx.deviceController.RunCommandWithReply(command.RemoveNew(element.Id.GetValue()))
 			if err != nil {
 				logging.CommonLog().Error("[ControllerBasic] AddClient error removing client with duplicated src-address: ", err)
 				return err
@@ -167,7 +168,7 @@ func (ctx *controllerBasic) AddClient(ip_addr firewallField.Address) error {
 		}
 	}
 
-	comment, err := FirewallCommentNew(
+	comment, err := comment.BasicCommentNewFromData(
 		ctx.delimiterKey,
 		ctx.prefix,
 		ctx.name,
@@ -181,10 +182,10 @@ func (ctx *controllerBasic) AddClient(ip_addr firewallField.Address) error {
 		ip_addr.GetValue(),
 		ctx.endpoint.Port,
 		ctx.endpoint.Protocol.GetValue(),
-		comment.Build(),
+		comment.ToString(),
 		dropRuleId,
 	)
-	_, err = ctx.device.RunCommandWithReply(frwCmdAdd)
+	_, err = ctx.deviceController.RunCommandWithReply(frwCmdAdd)
 	if err != nil {
 		logging.CommonLog().Error("[ControllerBasic] Add command execution error:", err)
 		return err
@@ -194,7 +195,7 @@ func (ctx *controllerBasic) AddClient(ip_addr firewallField.Address) error {
 }
 
 func (ctx *controllerBasic) GetRules() ([]firewallCommon.FirewallRule, error) {
-	getResponse, err := ctx.device.RunCommandWithReply(command.GetNew())
+	getResponse, err := ctx.deviceController.RunCommandWithReply(command.GetNew())
 	if err != nil {
 		return nil, err
 	}
@@ -225,7 +226,7 @@ func (ctx *controllerBasic) GetAddedClientIdsWithTimings() ([]ClientAdded, error
 
 	for _, element := range frwRules {
 		if element.Comment.GetValue() != "" {
-			comment, err := FirewallCommentNewFromString(element.Comment.GetValue(), ctx.delimiterKey)
+			comment, err := comment.BasicCommentNewFromString(element.Comment.GetValue(), ctx.delimiterKey)
 			if err != nil {
 				logging.CommonLog().Error("Error parsing comment:", element.Comment.GetValue())
 			}
@@ -251,7 +252,7 @@ func (ctx *controllerBasic) CleanupExpiredClients() error {
 	for _, element := range clients {
 		logging.CommonLog().Infof("Rule diff timestamp: %d Max duration: %d", time.Since(element.Added), ctx.endpoint.DurationSeconds.GetValue())
 		if time.Since(element.Added) > ctx.endpoint.DurationSeconds.GetValue() {
-			_, err := ctx.device.RunCommandWithReply(command.RemoveNew(element.Id))
+			_, err := ctx.deviceController.RunCommandWithReply(command.RemoveNew(element.Id))
 			if err != nil {
 				return err
 			}
@@ -307,7 +308,7 @@ func ClientsWatchdog(firewall *controllerBasic) {
 			timeRemaining := firewall.endpoint.DurationSeconds.GetValue() - curTime.Sub(element.Added)
 			logging.CommonLog().Infof("Rule %d time remaining: %f sec", element.Id, timeRemaining.Seconds())
 			if curTime.Sub(element.Added) > firewall.endpoint.DurationSeconds.GetValue() {
-				_, err := firewall.device.RunCommandWithReply(command.RemoveNew(element.Id))
+				_, err := firewall.deviceController.RunCommandWithReply(command.RemoveNew(element.Id))
 				if err != nil {
 					logging.CommonLog().Errorf("[controllerBasic] ClientsWatchdog error removing client %s", err)
 				} else {

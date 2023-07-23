@@ -7,8 +7,6 @@ import (
 
 	"gopkg.in/yaml.v3"
 
-	"github.com/altucor/http-knocker/device/command"
-	"github.com/altucor/http-knocker/device/response"
 	"github.com/altucor/http-knocker/devices"
 	"github.com/altucor/http-knocker/endpoint"
 	"github.com/altucor/http-knocker/firewallControllers"
@@ -18,7 +16,7 @@ import (
 
 type Knocker struct {
 	WebServer   *webserver.WebServer                             `yaml:"server"`
-	Devices     map[string]devices.InterfaceWrapper              `yaml:"devices"`
+	Devices     map[string]*devices.DeviceController             `yaml:"devices"`
 	Endpoints   map[string]*endpoint.Endpoint                    `yaml:"endpoints"`
 	Controllers map[string]*firewallControllers.InterfaceWrapper `yaml:"controllers"`
 }
@@ -26,7 +24,7 @@ type Knocker struct {
 func KnockerNewFromConfig(path string) (*Knocker, error) {
 	knocker := &Knocker{
 		WebServer:   nil,
-		Devices:     make(map[string]devices.InterfaceWrapper),
+		Devices:     make(map[string]*devices.DeviceController),
 		Endpoints:   make(map[string]*endpoint.Endpoint),
 		Controllers: make(map[string]*firewallControllers.InterfaceWrapper),
 	}
@@ -56,7 +54,7 @@ func KnockerNewFromConfig(path string) (*Knocker, error) {
 
 	// Setting Endpoint and Device to Controller
 	for _, element := range knocker.Controllers {
-		element.Controller.SetDevice(knocker.Devices[element.Config.Device].Device)
+		element.Controller.SetDevice(knocker.Devices[element.Config.Device])
 		element.Controller.SetEndpoint(knocker.Endpoints[element.Config.Endpoint])
 	}
 
@@ -77,48 +75,19 @@ func contains(s []string, str string) bool {
 	return false
 }
 
-func (ctx *Knocker) CleanupTrashRules() {
-	knownIdentifiers := make([]string, 0)
-	for _, element := range ctx.Controllers {
-		knownIdentifiers = append(knownIdentifiers, element.Controller.GetHash())
-	}
-
-	for _, dev := range ctx.Devices {
-		deviceResponse, err := dev.Device.RunCommandWithReply(command.GetNew())
-		if err != nil {
-			logging.CommonLog().Error("[Knocker] Error running command 'get rules' on device")
-		}
-		rules := deviceResponse.(*response.Get).GetRules()
-		for _, rule := range rules {
-			commentData, err := firewallControllers.FirewallCommentNewFromString(rule.Comment.GetString(), "-")
-			if err != nil {
-				logging.CommonLog().Error("[Knocker] Error processing firewall rule comment", err)
-				continue
-			}
-			if commentData.GetEndpointHash() == "" {
-				continue
-			}
-
-			if !contains(knownIdentifiers, commentData.GetEndpointHash()) {
-				_, err := dev.Device.RunCommandWithReply(command.RemoveNew(rule.Id.GetValue()))
-				if err != nil {
-					logging.CommonLog().Error("[Knocker] Error removing unrelated rule:", rule)
-				}
-			}
-		}
-	}
-
-}
-
 func (ctx *Knocker) Start() {
 	logging.CommonLog().Info("[Knocker] Starting...")
 	for _, item := range ctx.Devices {
-		item.Device.Start()
+		item.Start()
 	}
+	knownIdentifiers := make([]string, 0)
 	for _, item := range ctx.Controllers {
 		item.Controller.Start()
+		knownIdentifiers = append(knownIdentifiers, item.Controller.GetHash())
 	}
-	ctx.CleanupTrashRules()
+	for _, item := range ctx.Devices {
+		item.CleanupTrashRules(knownIdentifiers)
+	}
 	ctx.WebServer.Start()
 	logging.CommonLog().Info("[Knocker] Starting... DONE")
 }
@@ -138,7 +107,7 @@ func (ctx *Knocker) Stop() {
 		item.Controller.Stop()
 	}
 	for _, item := range ctx.Devices {
-		item.Device.Stop()
+		item.Stop()
 	}
 	logging.CommonLog().Info("[Knocker] Stopping... DONE")
 }

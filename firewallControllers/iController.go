@@ -10,7 +10,7 @@ import (
 
 type IController interface {
 	SetUrl(url string)
-	SetDevice(dev devices.IDevice)
+	SetDevice(dev *devices.DeviceController)
 	SetEndpoint(endpoint *endpoint.Endpoint)
 	GetHash() string
 	Start() error

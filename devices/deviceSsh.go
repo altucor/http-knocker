@@ -58,23 +58,23 @@ func (ctx *DeviceSsh) SetProtocol(protocol firewallProtocol.IFirewallProtocol) {
 }
 
 func (ctx *DeviceSsh) Start() error {
-	logging.CommonLog().Info("[deviceSsh] Starting...")
+	logging.CommonLog().Info("[deviceSsh Start] Starting...")
 	ctx.ClientConnect()
 	// ctx.SessionStart()
-	logging.CommonLog().Info("[deviceSsh] Starting... DONE")
+	logging.CommonLog().Info("[deviceSsh Start] Starting... DONE")
 	return nil
 }
 
 func (ctx *DeviceSsh) Stop() error {
-	logging.CommonLog().Info("[deviceSsh] Stopping...")
+	logging.CommonLog().Info("[deviceSsh Stop] Stopping...")
 	ctx.SessionStop()
 	ctx.ClientDisconnect()
-	logging.CommonLog().Info("[deviceSsh] Stopping... DONE")
+	logging.CommonLog().Info("[deviceSsh Stop] Stopping... DONE")
 	return nil
 }
 
 func (ctx *DeviceSsh) ClientConnect() {
-	logging.CommonLog().Info("[deviceSsh] Connect called")
+	logging.CommonLog().Info("[deviceSsh ClientConnect] Connect called")
 	//hostKeyCallback, err := knownhosts.New("/home/debian11/.ssh/known_hosts")
 	//if err != nil {
 	// logging.CommonLog().Fatal(err)
@@ -88,13 +88,13 @@ func (ctx *DeviceSsh) ClientConnect() {
 	}
 	sshConnection, err := ssh.Dial("tcp", ctx.config.Host+":"+fmt.Sprint(ctx.config.Port), config)
 	if err != nil {
-		logging.CommonLog().Error("[deviceSsh] Connect error: %s\n", err)
+		logging.CommonLog().Errorf("[deviceSsh ClientConnect] Connect error: %s\n", err)
 	}
 	ctx.client = sshConnection
 }
 
 func (ctx *DeviceSsh) ClientDisconnect() {
-	logging.CommonLog().Info("[deviceSsh] Disconnect called")
+	logging.CommonLog().Info("[deviceSsh ClientDisconnect] Disconnect called")
 	ctx.client.Close()
 }
 
@@ -102,7 +102,7 @@ func (ctx *DeviceSsh) SessionStart() {
 	var err error = nil
 	ctx.session, err = ctx.client.NewSession()
 	if err != nil {
-		logging.CommonLog().Error("[deviceSsh] RunSSHCommandWithReply NewSession error:", err)
+		logging.CommonLog().Error("[deviceSsh SessionStart] RunSSHCommandWithReply NewSession error:", err)
 	}
 	// configure terminal mode
 	modes := ssh.TerminalModes{
@@ -110,7 +110,7 @@ func (ctx *DeviceSsh) SessionStart() {
 	}
 	// run terminal session
 	if err := ctx.session.RequestPty("xterm", 50, 80, modes); err != nil {
-		logging.CommonLog().Error("[deviceSsh] RunSSHCommandWithReply RequestPty error:", err)
+		logging.CommonLog().Error("[deviceSsh SessionStart] RunSSHCommandWithReply RequestPty error:", err)
 	}
 }
 
@@ -120,9 +120,11 @@ func (ctx *DeviceSsh) SessionStop() {
 
 func (ctx *DeviceSsh) RunSSHCommandWithReply(cmd string) (string, error) {
 	ctx.SessionStart()
+	logging.CommonLog().Debug("[deviceSsh RunSSHCommandWithReply] Executing command: ", cmd)
 	output, err := ctx.session.Output(cmd)
 	if err != nil {
-		logging.CommonLog().Error("[deviceSsh] RunSSHCommandWithReply Output error: ", err)
+		logging.CommonLog().Error("[deviceSsh RunSSHCommandWithReply] Output error: ", err)
+		logging.CommonLog().Error("[deviceSsh RunSSHCommandWithReply] Output: ", string(output))
 		return "", err
 	}
 	return string(output), nil
@@ -138,14 +140,14 @@ func (ctx *DeviceSsh) RunCommandWithReply(command device.IDeviceCommand) (device
 
 	sshStr, err = ctx.protocol.To(command)
 	if err != nil {
-		logging.CommonLog().Error("[deviceSsh] RunCommandWithReply failed to convert cmd to IpTables: ", err)
+		logging.CommonLog().Error("[deviceSsh RunCommandWithReply] failed to convert cmd to IpTables: ", err)
 		return &response.Add{}, err
 	}
 	output, err := ctx.RunSSHCommandWithReply(sshStr)
 	if err != nil {
-		logging.CommonLog().Error("[deviceSsh] RunCommandWithReply failed to execute command: ", err)
+		logging.CommonLog().Error("[deviceSsh RunCommandWithReply] failed to execute command: ", err)
 		return &response.Add{}, err
 	}
-	logging.CommonLog().Info("[deviceSsh] RunCommandWithReply reply = ", string(output))
+	logging.CommonLog().Info("[deviceSsh RunCommandWithReply] reply = ", string(output))
 	return ctx.protocol.From(output, command.GetType())
 }

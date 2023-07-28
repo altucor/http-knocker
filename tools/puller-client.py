@@ -26,9 +26,11 @@ class HttpKnockerPullerClient:
         print(f"accepted response: {r.text}")
 
     def push_frw_rules(self, rules_set):
+        print(f"rule set count: {len(rules_set)}")
         print(f"rule set: {rules_set}")
         rules_body_dict = []
         for rule in rules_set:
+            rule.debug()
             rules_body_dict.append(rule.get())
         r = requests.post(
             self.__base + "/pushRulesSet", data={"rules": json.dumps(rules_body_dict)}
@@ -64,6 +66,12 @@ class IpTablesRule:
         self.__re["comment"] = re.compile(
             "-m\s+comment\s+--comment\s+(\"[^\"]*\"|'[^']*'|[^'\"\s]+)"
         )
+
+    def setId(self, id):
+        self.__body["id"] = id
+
+    def isEmpty(self):
+        return len(self.__body) == 0
 
     def get(self):
         return self.__body
@@ -125,11 +133,13 @@ class IpTablesController:
     def execute_remove(self, command):
         # iptables --delete INPUT 3
         # +1 in rule index because numeration starts from 1
+        # BUT
+        # -P INPUT ACCEPT -- this rule can be treated as 0 index
         args = [
             "iptables",
             "--delete",
             "INPUT",
-            f'{command["command"]["id"]+1}',
+            f'{command["command"]["id"]}',
         ]  # -I - insert
         result = run_shell_cmd(*args)
         if result.returncode != 0:
@@ -156,10 +166,18 @@ class IpTablesController:
         print(f"stdout rules: {result.stdout.decode('utf-8')}")
         rule_lines = result.stdout.decode("utf-8").split("\n")
         rules = []
+        index = 0
         for line in rule_lines:
+            if line == "":
+                continue
+            print(f"making rule from line: {line}")
             rule = IpTablesRule()
             rule.from_string(line)
+            # if rule.isEmpty():
+            #     continue
+            rule.setId(index)
             rules.append(rule)
+            index += 1
         return rules
 
 

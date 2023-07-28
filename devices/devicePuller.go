@@ -12,6 +12,7 @@ import (
 	"github.com/altucor/http-knocker/device"
 	"github.com/altucor/http-knocker/device/command"
 	"github.com/altucor/http-knocker/firewallCommon"
+	"github.com/altucor/http-knocker/firewallProtocol"
 	"github.com/altucor/http-knocker/logging"
 	"gopkg.in/yaml.v3"
 
@@ -214,7 +215,7 @@ func DevicePullerNew(cfg ConnectionPuller) *DevicePuller {
 	return ctx
 }
 
-func DevicePullerNewFromYaml(value *yaml.Node, protocol IFirewallRestProtocol) (*DevicePuller, error) {
+func DevicePullerNewFromYaml(value *yaml.Node) (IDevice, error) {
 	var cfg struct {
 		Conn ConnectionPuller `yaml:"connection"`
 	}
@@ -222,6 +223,11 @@ func DevicePullerNewFromYaml(value *yaml.Node, protocol IFirewallRestProtocol) (
 		return nil, err
 	}
 	return DevicePullerNew(cfg.Conn), nil
+}
+
+func (ctx *DevicePuller) SetProtocol(protocol firewallProtocol.IFirewallProtocol) {
+	// just do nothing, and keep object interface
+	// we dont need protocol for this device
 }
 
 func (ctx *DevicePuller) Start() error {

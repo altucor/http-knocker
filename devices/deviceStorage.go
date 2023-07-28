@@ -4,6 +4,7 @@ import (
 	"sync"
 
 	"github.com/altucor/http-knocker/logging"
+	"gopkg.in/yaml.v3"
 )
 
 type DeviceStorage struct {
@@ -18,11 +19,11 @@ func (ctx *DeviceStorage) Init() {
 	ctx.devices["router-os"] = DeviceRouterOsNewFromYaml
 }
 
-func (ctx *DeviceStorage) GetDeviceConstructor(name string) interface{} {
+func (ctx *DeviceStorage) GetDevice(name string, node *yaml.Node) (IDevice, error) {
 	if _, ok := ctx.devices[name]; !ok {
-		logging.CommonLog().Fatalf("[DeviceStorage] Cannot find device under name: \"%s\"", name)
+		logging.CommonLog().Fatalf("[DeviceStorage] Cannot find device under name: '%s'", name)
 	}
-	return ctx.devices[name]
+	return ctx.devices[name].(func(*yaml.Node) (IDevice, error))(node)
 }
 
 var lock = &sync.Mutex{}

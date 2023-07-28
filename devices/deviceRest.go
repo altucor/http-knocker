@@ -29,22 +29,26 @@ type DeviceRest struct {
 	protocol IFirewallRestProtocol
 }
 
-func DeviceRestNew(cfg ConnectionRest, protocol IFirewallRestProtocol) *DeviceRest {
+func DeviceRestNew(cfg ConnectionRest) *DeviceRest {
 	ctx := &DeviceRest{
 		config:   cfg,
-		protocol: protocol,
+		protocol: nil,
 	}
 	return ctx
 }
 
-func DeviceRestNewFromYaml(value *yaml.Node, protocol IFirewallRestProtocol) (*DeviceRest, error) {
+func DeviceRestNewFromYaml(value *yaml.Node) (IDevice, error) {
 	var cfg struct {
 		Conn ConnectionRest `yaml:"connection"`
 	}
 	if err := value.Decode(&cfg); err != nil {
 		return nil, err
 	}
-	return DeviceRestNew(cfg.Conn, protocol), nil
+	return DeviceRestNew(cfg.Conn), nil
+}
+
+func (ctx *DeviceRest) SetProtocol(protocol firewallProtocol.IFirewallProtocol) {
+	ctx.protocol = protocol.(IFirewallRestProtocol)
 }
 
 func (ctx *DeviceRest) Start() error {

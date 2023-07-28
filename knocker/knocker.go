@@ -66,15 +66,6 @@ func KnockerNewFromConfig(path string) (*Knocker, error) {
 	return knocker, nil
 }
 
-func contains(s []string, str string) bool {
-	for _, v := range s {
-		if v == str {
-			return true
-		}
-	}
-	return false
-}
-
 func (ctx *Knocker) Start() {
 	logging.CommonLog().Info("[Knocker] Starting...")
 	for _, item := range ctx.Devices {

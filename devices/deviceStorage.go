@@ -17,6 +17,7 @@ func (ctx *DeviceStorage) Init() {
 	ctx.devices["ssh"] = DeviceSshNewFromYaml
 	ctx.devices["puller"] = DevicePullerNewFromYaml
 	ctx.devices["router-os"] = DeviceRouterOsNewFromYaml
+	ctx.devices["serial"] = DeviceSerialNewFromYaml
 }
 
 func (ctx *DeviceStorage) GetDevice(name string, node *yaml.Node) (IDevice, error) {

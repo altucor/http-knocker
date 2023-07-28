@@ -140,6 +140,10 @@ func (ctx *controllerBasic) DeduplicationCleanup(ip_addr firewallField.Address) 
 	return nil
 }
 
+func (ctx *controllerBasic) CleanupTrashRules() error {
+	return ctx.deviceController.CleanupTrashRules(ctx.comment)
+}
+
 func (ctx *controllerBasic) AddClient(ip_addr firewallField.Address) error {
 	// First of all check is client with src-address already present
 	// to prevent duplication rules for one ip addr

@@ -2,6 +2,7 @@ package devices
 
 import (
 	"errors"
+	"fmt"
 	"sync"
 
 	"github.com/altucor/http-knocker/comment"
@@ -15,9 +16,8 @@ import (
 )
 
 type Config struct {
-	Type           string `yaml:"type"`
-	Protocol       string `yaml:"protocol"`
-	CleanupOnStart bool   `yaml:"cleanup-on-start"`
+	Type     string `yaml:"type"`
+	Protocol string `yaml:"protocol"`
 }
 
 type DeviceConstructor interface {
@@ -36,9 +36,8 @@ func DeviceControllerNew(device IDevice) *DeviceController {
 	ctx := DeviceController{
 		Device: nil,
 		Config: Config{
-			Type:           "",
-			Protocol:       "",
-			CleanupOnStart: false,
+			Type:     "",
+			Protocol: "",
 		},
 		needCacheUpdate: true,
 	}
@@ -124,53 +123,32 @@ func (ctx *DeviceController) GetRulesFiltered(filter comment.IRuleComment, force
 	return filteredRules, nil
 }
 
-func contains(s []string, str string) bool {
-	for _, v := range s {
-		if v == str {
-			return true
-		}
-	}
-	return false
-}
-
-func (ctx *DeviceController) CleanupTrashRules(knownIdentifiers []string) {
+func (ctx *DeviceController) CleanupTrashRules(comment comment.IRuleComment) error {
 	/*
 		Try to find rules for remove by:
 		1) Rule prefix
 		2) Controller name
 		3) Endpoint hash
 	*/
+	var pendingRemove []uint64
 	deviceResponse, err := ctx.Device.RunCommandWithReply(command.GetNew())
 	if err != nil {
 		logging.CommonLog().Error("[DeviceController] Error running command 'get rules' on device")
-		return
+		return fmt.Errorf("error running command 'get rules' on device")
 	}
 	rules := deviceResponse.(*response.Get).GetRules()
 	for _, rule := range rules {
-		commentData, err := comment.BasicCommentNewFromString(rule.Comment.GetString(), "-")
-		if err != nil {
-			logging.CommonLog().Error("[DeviceController] Error processing firewall rule comment", err)
-			continue
-		}
-		if commentData.GetEndpointHash() == "" {
-			continue
-		}
-		if !contains(knownIdentifiers, commentData.GetEndpointHash()) {
-			_, err := ctx.Device.RunCommandWithReply(command.RemoveNew(rule.Id.GetValue()))
-			if err != nil {
-				logging.CommonLog().Error("[DeviceController] Error removing unrelated rule:", rule)
-			}
+		if comment.IsSameFamily(rule.Comment.GetValue()) {
+			pendingRemove = append(pendingRemove, rule.Id.GetValue())
 		}
 	}
+	return ctx.RemoveBatch(pendingRemove)
 }
 
 func (ctx *DeviceController) Start() error {
 	ctx.deviceMutex.Lock()
 	defer ctx.deviceMutex.Unlock()
 	err := ctx.Device.Start()
-	// if ctx.Config.CleanupOnStart {
-	// 	// ctx.CleanupTrashRules()
-	// }
 	return err
 }
 

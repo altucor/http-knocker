@@ -71,13 +71,9 @@ func (ctx *Knocker) Start() {
 	for _, item := range ctx.Devices {
 		item.Start()
 	}
-	knownIdentifiers := make([]string, 0)
-	for _, item := range ctx.Controllers {
-		item.Controller.Start()
-		knownIdentifiers = append(knownIdentifiers, item.Controller.GetHash())
-	}
-	for _, item := range ctx.Devices {
-		item.CleanupTrashRules(knownIdentifiers)
+	for _, controller := range ctx.Controllers {
+		controller.Controller.CleanupTrashRules()
+		controller.Controller.Start()
 	}
 	ctx.WebServer.Start()
 	logging.CommonLog().Info("[Knocker] Starting... DONE")

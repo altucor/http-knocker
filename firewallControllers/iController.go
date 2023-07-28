@@ -18,6 +18,7 @@ type IController interface {
 	HttpCallbackAddClient(w http.ResponseWriter, r *http.Request)
 	GetHttpCallback() (string, func(w http.ResponseWriter, r *http.Request))
 	CleanupExpiredClients() error
+	CleanupTrashRules() error
 }
 
 type Config struct {

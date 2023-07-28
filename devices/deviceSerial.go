@@ -25,8 +25,8 @@ type DeviceSerial struct {
 
 func DeviceSerialNew(cfg ConnectionSerialCfg) *DeviceSerial {
 	c := &serial.Config{
-		Name: "/dev/tty.usbserial-21230",
-		Baud: 9600,
+		Name: cfg.Name,
+		Baud: int(cfg.Baud),
 	}
 	serial.OpenPort(c)
 	ctx := &DeviceSerial{

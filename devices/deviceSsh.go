@@ -33,24 +33,28 @@ type DeviceSsh struct {
 	session  *ssh.Session
 }
 
-func DeviceSshNew(cfg ConnectionSSHCfg, protocol IFirewallSshProtocol) *DeviceSsh {
+func DeviceSshNew(cfg ConnectionSSHCfg) *DeviceSsh {
 	ctx := &DeviceSsh{
 		client:   nil,
 		config:   cfg,
-		protocol: protocol,
+		protocol: nil,
 	}
 
 	return ctx
 }
 
-func DeviceSshNewFromYaml(value *yaml.Node, protocol IFirewallSshProtocol) (*DeviceSsh, error) {
+func DeviceSshNewFromYaml(value *yaml.Node) (IDevice, error) {
 	var cfg struct {
 		Conn ConnectionSSHCfg `yaml:"connection"`
 	}
 	if err := value.Decode(&cfg); err != nil {
 		return nil, err
 	}
-	return DeviceSshNew(cfg.Conn, protocol), nil
+	return DeviceSshNew(cfg.Conn), nil
+}
+
+func (ctx *DeviceSsh) SetProtocol(protocol firewallProtocol.IFirewallProtocol) {
+	ctx.protocol = protocol.(IFirewallSshProtocol)
 }
 
 func (ctx *DeviceSsh) Start() error {

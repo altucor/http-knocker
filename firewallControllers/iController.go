@@ -10,7 +10,7 @@ import (
 
 type IController interface {
 	SetUrl(url string)
-	SetDevice(dev devices.IDevice)
+	SetDevice(dev *devices.DeviceController)
 	SetEndpoint(endpoint *endpoint.Endpoint)
 	GetHash() string
 	Start() error
@@ -18,6 +18,7 @@ type IController interface {
 	HttpCallbackAddClient(w http.ResponseWriter, r *http.Request)
 	GetHttpCallback() (string, func(w http.ResponseWriter, r *http.Request))
 	CleanupExpiredClients() error
+	CleanupTrashRules() error
 }
 
 type Config struct {

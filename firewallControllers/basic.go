@@ -1,15 +1,13 @@
 package firewallControllers
 
 import (
-	"errors"
 	"fmt"
 	"net/http"
-	"sync"
 	"time"
 
+	"github.com/altucor/http-knocker/comment"
 	"github.com/altucor/http-knocker/common"
 	"github.com/altucor/http-knocker/device/command"
-	"github.com/altucor/http-knocker/device/response"
 	"github.com/altucor/http-knocker/devices"
 	"github.com/altucor/http-knocker/endpoint"
 	"github.com/altucor/http-knocker/firewallCommon"
@@ -17,16 +15,6 @@ import (
 	"github.com/altucor/http-knocker/logging"
 	"gopkg.in/yaml.v3"
 )
-
-type ClientAdded struct {
-	Id    uint64
-	Added time.Time
-}
-
-type SafeAddedClientsStorage struct {
-	mu      sync.Mutex
-	clients []ClientAdded
-}
 
 type RemoveAnythingMatching struct {
 	OlderThen        common.DurationSeconds `yaml:"older-then"`
@@ -41,30 +29,26 @@ type ControllerCfg struct {
 }
 
 type controllerBasic struct {
-	watchdogRunning       bool
-	url                   string
-	prefix                string
-	name                  string
-	device                devices.IDevice
-	endpoint              *endpoint.Endpoint
-	controllerCfg         ControllerCfg
-	addedClients          SafeAddedClientsStorage
-	delimiterKey          string
-	needUpdateClientsList bool
+	watchdogRunning  bool
+	url              string
+	comment          comment.IRuleComment
+	deviceController *devices.DeviceController
+	endpoint         *endpoint.Endpoint
+	controllerCfg    ControllerCfg
 }
 
 // additional arguments - dev devices.IDevice, cfg endpoint.Endpoint
 func ControllerBasicNew(controllerCfg ControllerCfg) *controllerBasic {
 	ctx := controllerBasic{
-		watchdogRunning:       false,
-		name:                  "basicController",
-		prefix:                "httpKnocker",
-		device:                nil,
-		endpoint:              nil,
-		controllerCfg:         controllerCfg,
-		delimiterKey:          "-",
-		needUpdateClientsList: true,
+		watchdogRunning:  false,
+		comment:          comment.BasicCommentNew(),
+		deviceController: nil,
+		endpoint:         nil,
+		controllerCfg:    controllerCfg,
 	}
+	ctx.comment.SetDelimiter("-")
+	ctx.comment.SetPrefix("httpKnocker")
+	ctx.comment.SetControllerName("basicController")
 	return &ctx
 }
 
@@ -82,12 +66,13 @@ func (ctx *controllerBasic) SetUrl(url string) {
 	ctx.url = url
 }
 
-func (ctx *controllerBasic) SetDevice(dev devices.IDevice) {
-	ctx.device = dev
+func (ctx *controllerBasic) SetDevice(dev *devices.DeviceController) {
+	ctx.deviceController = dev
 }
 
 func (ctx *controllerBasic) SetEndpoint(endpoint *endpoint.Endpoint) {
 	ctx.endpoint = endpoint
+	ctx.comment.SetEndpointHash(ctx.endpoint.GetHash(ctx.url))
 }
 
 func (ctx *controllerBasic) GetHash() string {
@@ -96,7 +81,7 @@ func (ctx *controllerBasic) GetHash() string {
 
 func (ctx *controllerBasic) Start() error {
 	logging.CommonLog().Info("[ControllerBasic] Starting...")
-	go UpdateRulesEveryThread(ctx)
+	// go UpdateRulesEveryThread(ctx)
 	go ClientsWatchdog(ctx)
 	ctx.watchdogRunning = true
 	logging.CommonLog().Info("[ControllerBasic] Starting... DONE")
@@ -136,123 +121,18 @@ func (ctx *controllerBasic) GetHttpCallback() (string, func(w http.ResponseWrite
 	return "/" + ctx.url, ctx.endpoint.RegisterMiddlewares(ctx.HttpCallbackAddClient)
 }
 
-func (ctx *controllerBasic) AddClient(ip_addr firewallField.Address) error {
-	// First of all check is client with src-address already present
-	// to prevent duplication rules for one ip addr
-	frwRules, err := ctx.GetRules()
+func (ctx *controllerBasic) DeduplicationCleanup(ip_addr firewallField.Address) error {
+	frwRules, err := ctx.deviceController.GetRulesFiltered(ctx.comment, false)
 	if err != nil {
-		logging.CommonLog().Error("[ControllerBasic] AddClient cannot check is client exist: ", err)
+		logging.CommonLog().Error("[ControllerBasic] DeduplicationCleanup cannot check is client exist: ", err)
 		return err
 	}
 	for _, element := range frwRules {
 		// TODO: Fix deduplication for SSH
 		if element.SrcAddress == ip_addr {
-			_, err := ctx.device.RunCommandWithReply(command.RemoveNew(element.Id.GetValue()))
+			_, err := ctx.deviceController.RunCommandWithReply(command.RemoveNew(element.Id.GetValue()))
 			if err != nil {
-				logging.CommonLog().Error("[ControllerBasic] AddClient error removing client with duplicated src-address: ", err)
-				return err
-			}
-		}
-	}
-
-	// If drop rule comment is set
-	// Then find it's id on device firewall
-	// Otherwise ignore searching of it
-	var dropRuleId uint64 = 0
-	if ctx.controllerCfg.DropRuleComment != "" {
-		dropRuleId, err = ctx.FindRuleIdByComment(ctx.controllerCfg.DropRuleComment)
-		if err != nil {
-			logging.CommonLog().Error("[ControllerBasic] AddClient cannot find drop rule id")
-			return err
-		}
-	}
-
-	comment, err := FirewallCommentNew(
-		ctx.delimiterKey,
-		ctx.prefix,
-		ctx.name,
-		time.Now(),
-		ctx.endpoint.GetHash(ctx.url),
-	)
-	if err != nil {
-		return err
-	}
-	frwCmdAdd := command.AddNew(
-		ip_addr.GetValue(),
-		ctx.endpoint.Port,
-		ctx.endpoint.Protocol.GetValue(),
-		comment.Build(),
-		dropRuleId,
-	)
-	_, err = ctx.device.RunCommandWithReply(frwCmdAdd)
-	if err != nil {
-		logging.CommonLog().Error("[ControllerBasic] Add command execution error:", err)
-		return err
-	}
-	ctx.needUpdateClientsList = true
-	return err
-}
-
-func (ctx *controllerBasic) GetRules() ([]firewallCommon.FirewallRule, error) {
-	getResponse, err := ctx.device.RunCommandWithReply(command.GetNew())
-	if err != nil {
-		return nil, err
-	}
-	return getResponse.(*response.Get).GetRules(), nil
-}
-
-func (ctx *controllerBasic) FindRuleIdByComment(comment string) (uint64, error) {
-	frwRules, err := ctx.GetRules()
-	if err != nil {
-		return 0, err
-	}
-	for _, element := range frwRules {
-		if element.Comment.GetValue() == comment {
-			return element.Id.GetValue(), nil
-		}
-	}
-
-	logging.CommonLog().Error("[ControllerBasic] FindRuleIdByComment Cannot find target rule")
-	return 0, errors.New("cannot find target rule")
-}
-
-func (ctx *controllerBasic) GetAddedClientIdsWithTimings() ([]ClientAdded, error) {
-	var clientIds []ClientAdded
-	frwRules, err := ctx.GetRules()
-	if err != nil {
-		return clientIds, err
-	}
-
-	for _, element := range frwRules {
-		if element.Comment.GetValue() != "" {
-			comment, err := FirewallCommentNewFromString(element.Comment.GetValue(), ctx.delimiterKey)
-			if err != nil {
-				logging.CommonLog().Error("Error parsing comment:", element.Comment.GetValue())
-			}
-			if comment.GetPrefix() == ctx.prefix &&
-				comment.GetControllerName() == ctx.name &&
-				comment.GetEndpointHash() == ctx.endpoint.GetHash(ctx.url) {
-				clientIds = append(clientIds, ClientAdded{
-					Id:    element.Id.GetValue(),
-					Added: comment.GetTimestamp(),
-				})
-			}
-		}
-	}
-	return clientIds, nil
-}
-
-func (ctx *controllerBasic) CleanupExpiredClients() error {
-	clients, err := ctx.GetAddedClientIdsWithTimings()
-	if err != nil {
-		return err
-	}
-
-	for _, element := range clients {
-		logging.CommonLog().Infof("Rule diff timestamp: %d Max duration: %d", time.Since(element.Added), ctx.endpoint.DurationSeconds.GetValue())
-		if time.Since(element.Added) > ctx.endpoint.DurationSeconds.GetValue() {
-			_, err := ctx.device.RunCommandWithReply(command.RemoveNew(element.Id))
-			if err != nil {
+				logging.CommonLog().Error("[ControllerBasic] DeduplicationCleanup error removing client with duplicated src-address: ", err)
 				return err
 			}
 		}
@@ -260,23 +140,84 @@ func (ctx *controllerBasic) CleanupExpiredClients() error {
 	return nil
 }
 
-func (ctx *controllerBasic) InitListOfAddedClients() {
-	clientsAdded, err := ctx.GetAddedClientIdsWithTimings()
-	if err != nil {
-		logging.CommonLog().Error("[controllerBasic] InitListOfAddedClients error getting list of clients")
-	} else {
-		ctx.addedClients.mu.Lock()
-		ctx.addedClients.clients = clientsAdded
-		ctx.addedClients.mu.Unlock()
-	}
+func (ctx *controllerBasic) CleanupTrashRules() error {
+	return ctx.deviceController.CleanupTrashRules(ctx.comment)
 }
 
-func UpdateRulesEveryThread(firewall *controllerBasic) {
-	if !firewall.watchdogRunning {
-		return
+func (ctx *controllerBasic) AddClient(ip_addr firewallField.Address) error {
+	// First of all check is client with src-address already present
+	// to prevent duplication rules for one ip addr
+
+	err := ctx.DeduplicationCleanup(ip_addr)
+	if err != nil {
+		logging.CommonLog().Error("[ControllerBasic] AddClient cannot check is client exist: ", err)
+		return err
 	}
-	time.Sleep(firewall.controllerCfg.UpdateRulesEvery.GetValue())
-	firewall.needUpdateClientsList = true
+
+	// If drop rule comment is set
+	// Then find it's id on device firewall
+	// Otherwise ignore searching of it
+	var dropRuleId uint64 = 0
+	if ctx.controllerCfg.DropRuleComment != "" {
+		dropRuleId, err = ctx.deviceController.FindRuleIdByComment(ctx.controllerCfg.DropRuleComment, false)
+		if err != nil {
+			logging.CommonLog().Error("[ControllerBasic] AddClient cannot find drop rule id")
+			return err
+		}
+	}
+
+	ctx.comment.SetTimestamp(time.Now())
+	frwCmdAdd := command.AddNew(
+		ip_addr.GetValue(),
+		ctx.endpoint.Port,
+		ctx.endpoint.Protocol.GetValue(),
+		ctx.comment.ToString(),
+		dropRuleId,
+	)
+	_, err = ctx.deviceController.RunCommandWithReply(frwCmdAdd)
+	if err != nil {
+		logging.CommonLog().Error("[ControllerBasic] Add command execution error:", err)
+		return err
+	}
+	return err
+}
+
+func (ctx *controllerBasic) CheckIsRuleExpired(rule firewallCommon.FirewallRule) bool {
+	commentObj, err := comment.BasicCommentNewFromString(rule.Comment.GetValue(), ctx.comment.GetDelimiter())
+	if err != nil {
+		logging.CommonLog().Error("Error parsing comment:", rule.Comment.GetValue())
+		return false
+	}
+	curTime := time.Now()
+	timeRemaining := ctx.endpoint.DurationSeconds.GetValue() - curTime.Sub(commentObj.GetTimestamp())
+	logging.CommonLog().Debugf("[ControllerBasic] CheckIsRuleExpired Rule %d Diff timestamp: %f Max duration: %d Time remaining: %f sec",
+		rule.Id.GetValue(),
+		curTime.Sub(commentObj.GetTimestamp()).Seconds(),
+		ctx.endpoint.DurationSeconds.GetSeconds(),
+		timeRemaining.Seconds(),
+	)
+	return curTime.Sub(commentObj.GetTimestamp()) > ctx.endpoint.DurationSeconds.GetValue()
+}
+
+func (ctx *controllerBasic) CleanupExpiredClients() error {
+	frwRules, err := ctx.deviceController.GetRulesFiltered(ctx.comment, true)
+	if err != nil {
+		return err
+	}
+
+	var pendingForRemove []uint64
+	for _, rule := range frwRules {
+		commentData, err := comment.BasicCommentNewFromString(rule.Comment.GetValue(), ctx.comment.GetDelimiter())
+		if err != nil {
+			logging.CommonLog().Error("[basicController] CleanupExpiredClients err:", err)
+			continue
+		}
+		logging.CommonLog().Infof("Rule diff timestamp: %d Max duration: %d", time.Since(commentData.GetTimestamp()), ctx.endpoint.DurationSeconds.GetValue())
+		if time.Since(commentData.GetTimestamp()) > ctx.endpoint.DurationSeconds.GetValue() {
+			pendingForRemove = append(pendingForRemove, rule.Id.GetValue())
+		}
+	}
+	return ctx.deviceController.RemoveBatch(pendingForRemove)
 }
 
 func ClientsWatchdog(firewall *controllerBasic) {
@@ -284,45 +225,24 @@ func ClientsWatchdog(firewall *controllerBasic) {
 		if !firewall.watchdogRunning {
 			return
 		}
-		if firewall.needUpdateClientsList {
-			firewall.needUpdateClientsList = false
-			firewall.InitListOfAddedClients()
-		}
 		time.Sleep(time.Second)
 		// logging.CommonLog().Debugf("[controllerBasic] ClientsWatchdog worked %d", uint64(time.Now().Unix()))
-		firewall.addedClients.mu.Lock()
-		clientsLength := len(firewall.addedClients.clients)
-		firewall.addedClients.mu.Unlock()
-		if clientsLength == 0 {
+		frwRules, err := firewall.deviceController.GetRulesFiltered(firewall.comment, false)
+		if err != nil {
+			logging.CommonLog().Error("[ControllerBasic] ClientsWatchdog error getting rules: ", err)
 			continue
 		}
-		logging.CommonLog().Debugf("Clients: %v", firewall.addedClients.clients)
-		firewall.addedClients.mu.Lock()
-		for index, element := range firewall.addedClients.clients {
-			curTime := time.Now()
-			logging.CommonLog().Debugf("Rule diff timestamp: %f Max duration: %d",
-				curTime.Sub(element.Added).Seconds(),
-				firewall.endpoint.DurationSeconds.GetSeconds(),
-			)
-			timeRemaining := firewall.endpoint.DurationSeconds.GetValue() - curTime.Sub(element.Added)
-			logging.CommonLog().Infof("Rule %d time remaining: %f sec", element.Id, timeRemaining.Seconds())
-			if curTime.Sub(element.Added) > firewall.endpoint.DurationSeconds.GetValue() {
-				_, err := firewall.device.RunCommandWithReply(command.RemoveNew(element.Id))
+
+		if len(frwRules) == 0 {
+			continue
+		}
+		for _, element := range frwRules {
+			if firewall.CheckIsRuleExpired(element) {
+				err := firewall.CleanupExpiredClients()
 				if err != nil {
-					logging.CommonLog().Errorf("[controllerBasic] ClientsWatchdog error removing client %s", err)
-				} else {
-					// In case of success regenerate local list of added clients
-					logging.CommonLog().Infof("[controllerBasic] ClientsWatchdog Removed client from pending list: %v",
-						firewall.addedClients.clients[index],
-					)
-					// If we removed some client than better to break cycle and try again next time
-					// In other case we can hit out of bounds after removing and iterating via modified clients array
-					// And also list of indexes of added clients on our side will be invalid in comparison to state on remote firewall
-					firewall.needUpdateClientsList = true
-					break
+					logging.CommonLog().Error("[ControllerBasic] Error cleaning expired clients:", err)
 				}
 			}
 		}
-		firewall.addedClients.mu.Unlock()
 	}
 }

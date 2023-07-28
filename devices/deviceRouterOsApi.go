@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/altucor/http-knocker/device"
+	"github.com/altucor/http-knocker/firewallProtocol"
 	"github.com/altucor/http-knocker/logging"
 	"gopkg.in/yaml.v3"
 
@@ -38,7 +39,7 @@ func DeviceRouterOsNew(cfg ConnectionRouterOsApi) *DeviceRouterOsApi {
 	return ctx
 }
 
-func DeviceRouterOsNewFromYaml(value *yaml.Node, protocol IFirewallRestProtocol) (*DeviceRouterOsApi, error) {
+func DeviceRouterOsNewFromYaml(value *yaml.Node) (IDevice, error) {
 	var cfg struct {
 		Conn ConnectionRouterOsApi `yaml:"connection"`
 	}
@@ -46,6 +47,11 @@ func DeviceRouterOsNewFromYaml(value *yaml.Node, protocol IFirewallRestProtocol)
 		return nil, err
 	}
 	return DeviceRouterOsNew(cfg.Conn), nil
+}
+
+func (ctx *DeviceRouterOsApi) SetProtocol(protocol firewallProtocol.IFirewallProtocol) {
+	// just do nothing, and keep object interface
+	// we dont need protocol for this device
 }
 
 func (ctx *DeviceRouterOsApi) Start() error {

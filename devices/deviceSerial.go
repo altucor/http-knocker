@@ -1,6 +1,7 @@
 package devices
 
 import (
+	"bytes"
 	"fmt"
 
 	"github.com/altucor/http-knocker/device"
@@ -16,11 +17,16 @@ type ConnectionSerialCfg struct {
 	Baud uint32 `yaml:"baud"`
 }
 
+type outputCollector struct {
+	buffer bytes.Buffer
+}
+
 type DeviceSerial struct {
-	config       ConnectionSerialCfg
-	protocol     IFirewallSshProtocol
-	serialConfig *serial.Config
-	port         *serial.Port
+	config          ConnectionSerialCfg
+	protocol        IFirewallSshProtocol
+	serialConfig    *serial.Config
+	port            *serial.Port
+	outputCollector outputCollector
 }
 
 func DeviceSerialNew(cfg ConnectionSerialCfg) *DeviceSerial {
@@ -58,6 +64,7 @@ func (ctx *DeviceSerial) Start() error {
 		logging.CommonLog().Error("[deviceSerial] error opening port:", ctx.serialConfig.Name)
 	}
 	ctx.port = port
+	go ctx.outputCollectorReader()
 	logging.CommonLog().Info("[deviceSerial] Starting... DONE")
 	return err
 }
@@ -67,6 +74,33 @@ func (ctx *DeviceSerial) Stop() error {
 	err := ctx.port.Close()
 	logging.CommonLog().Info("[deviceSerial] Stopping... DONE")
 	return err
+}
+
+func (ctx *DeviceSerial) outputCollectorReader() {
+	var response []byte
+	for {
+		read_n, err := ctx.port.Read(response)
+		if err != nil {
+			logging.CommonLog().Errorf("[deviceSerial] outputCollectorReader Read_n %d Read error: %s", read_n, err)
+			continue
+		}
+		written_n, err := ctx.outputCollector.buffer.Write(response)
+		if written_n != read_n {
+			logging.CommonLog().Errorf("[deviceSerial] outputCollectorReader: not all data written to buffer Read_n %d, written_n %d Read error: %s", read_n, written_n, err)
+			continue
+		}
+	}
+}
+
+func (ctx *DeviceSerial) readDataFromBuffer(sentCmd []byte) ([]byte, error) {
+	line, err := ctx.outputCollector.buffer.ReadBytes(sentCmd[0])
+	if err != nil {
+		return nil, err
+	}
+	if bytes.Equal(line, sentCmd) { // but actualy if match return next line with output
+		return line, nil
+	}
+	return nil, nil
 }
 
 func (ctx *DeviceSerial) RunSerialCommandWithReply(cmd string) (string, error) {

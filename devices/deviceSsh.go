@@ -88,7 +88,7 @@ func (ctx *DeviceSsh) ClientConnect() {
 	}
 	sshConnection, err := ssh.Dial("tcp", ctx.config.Host+":"+fmt.Sprint(ctx.config.Port), config)
 	if err != nil {
-		logging.CommonLog().Error("[deviceSsh] Connect error: %s\n", err)
+		logging.CommonLog().Errorf("[deviceSsh] Connect error: %s\n", err)
 	}
 	ctx.client = sshConnection
 }

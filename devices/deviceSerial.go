@@ -3,6 +3,9 @@ package devices
 import (
 	"bytes"
 	"fmt"
+	"regexp"
+	"strings"
+	"time"
 
 	"github.com/altucor/http-knocker/device"
 	"github.com/altucor/http-knocker/device/response"
@@ -13,8 +16,9 @@ import (
 )
 
 type ConnectionSerialCfg struct {
-	Name string `yaml:"name"`
-	Baud uint32 `yaml:"baud"`
+	Name        string        `yaml:"name"`
+	Baud        uint32        `yaml:"baud"`
+	ReadTimeout time.Duration `yaml:"readTimeout"`
 }
 
 type outputCollector struct {
@@ -31,8 +35,9 @@ type DeviceSerial struct {
 
 func DeviceSerialNew(cfg ConnectionSerialCfg) *DeviceSerial {
 	c := &serial.Config{
-		Name: cfg.Name,
-		Baud: int(cfg.Baud),
+		Name:        cfg.Name,
+		Baud:        int(cfg.Baud),
+		ReadTimeout: cfg.ReadTimeout * time.Millisecond,
 	}
 	serial.OpenPort(c)
 	ctx := &DeviceSerial{
@@ -77,14 +82,14 @@ func (ctx *DeviceSerial) Stop() error {
 }
 
 func (ctx *DeviceSerial) outputCollectorReader() {
-	var response []byte
+	read_data := make([]byte, 256)
 	for {
-		read_n, err := ctx.port.Read(response)
+		read_n, err := ctx.port.Read(read_data)
 		if err != nil {
 			logging.CommonLog().Errorf("[deviceSerial] outputCollectorReader Read_n %d Read error: %s", read_n, err)
 			continue
 		}
-		written_n, err := ctx.outputCollector.buffer.Write(response)
+		written_n, err := ctx.outputCollector.buffer.Write(read_data[:read_n])
 		if written_n != read_n {
 			logging.CommonLog().Errorf("[deviceSerial] outputCollectorReader: not all data written to buffer Read_n %d, written_n %d Read error: %s", read_n, written_n, err)
 			continue
@@ -92,31 +97,50 @@ func (ctx *DeviceSerial) outputCollectorReader() {
 	}
 }
 
-func (ctx *DeviceSerial) readDataFromBuffer(sentCmd []byte) ([]byte, error) {
-	line, err := ctx.outputCollector.buffer.ReadBytes(sentCmd[0])
-	if err != nil {
-		return nil, err
+func filterRules(input string, delimiter string) string {
+	parts := strings.Split(input, delimiter)
+	if len(parts) > 1 {
+		return parts[len(parts)-1]
 	}
-	if bytes.Equal(line, sentCmd) { // but actualy if match return next line with output
-		return line, nil
-	}
-	return nil, nil
+	return parts[0]
 }
 
-func (ctx *DeviceSerial) RunSerialCommandWithReply(cmd string) (string, error) {
+func filterEscapeChars(in string) string {
+	// https://gist.github.com/fnky/458719343aabd01cfb17a3a4f7296797 -- Escape codes with description
+	var reEscapeComamnds = regexp.MustCompile(`\x1b\[\d{0,}[a-zA-Z]`)
+	return reEscapeComamnds.ReplaceAllString(in, ``)
+}
 
+func (ctx *DeviceSerial) readStringFromBuffer(n uint64) (string, error) {
+	response := make([]byte, n)
+	read_n, err := ctx.outputCollector.buffer.Read(response)
+	if err != nil {
+		logging.CommonLog().Errorf("[deviceSerial] readStringFromBuffer Read_n %d Read error: %s", read_n, err)
+		return "", err
+	}
+
+	return string(response), nil
+}
+
+func (ctx *DeviceSerial) getResponseForCmd(cmd string, expectedOutputSize uint64) (string, error) {
+	str, err := ctx.readStringFromBuffer(expectedOutputSize)
+	if err != nil {
+		return str, err
+	}
+	str = filterEscapeChars(str)
+	str = filterRules(str, cmd)
+	return str, nil
+}
+
+func (ctx *DeviceSerial) RunSerialCommandWithReply(cmd string, timeout time.Duration) (string, error) {
+	cmd += "\r\n"
 	written_n, err := ctx.port.Write([]byte(cmd))
 	if err != nil {
 		logging.CommonLog().Errorf("[deviceSerial] RunSerialCommandWithReply Written_n %d Write error: %s", written_n, err)
 		return "", err
 	}
-	var response []byte
-	read_n, err := ctx.port.Read(response)
-	if err != nil {
-		logging.CommonLog().Errorf("[deviceSerial] RunSerialCommandWithReply Read_n %d Read error: %s", read_n, err)
-		return "", err
-	}
-	return string(response), nil
+	time.Sleep(timeout)
+	return ctx.getResponseForCmd(cmd, 4096)
 }
 
 func (ctx *DeviceSerial) RunCommandWithReply(command device.IDeviceCommand) (device.IDeviceResponse, error) {
@@ -132,7 +156,7 @@ func (ctx *DeviceSerial) RunCommandWithReply(command device.IDeviceCommand) (dev
 		logging.CommonLog().Error("[deviceSerial] RunCommandWithReply failed to convert cmd to IpTables: ", err)
 		return &response.Add{}, err
 	}
-	output, err := ctx.RunSerialCommandWithReply(serialStr)
+	output, err := ctx.RunSerialCommandWithReply(serialStr, time.Second)
 	if err != nil {
 		logging.CommonLog().Error("[deviceSerial] RunCommandWithReply failed to execute command: ", err)
 		return &response.Add{}, err

@@ -15,6 +15,7 @@ func (ctx *ProtocolStorage) Init() {
 	ctx.protocols["rest-router-os"] = ProtocolRouterOsRest{}
 	ctx.protocols["ssh-iptables"] = ProtocolIpTables{}
 	ctx.protocols["puller"] = nil
+	ctx.protocols["terminal-router-os"] = ProtocolRouterOsTerminal{}
 	ctx.protocols[""] = nil
 }
 

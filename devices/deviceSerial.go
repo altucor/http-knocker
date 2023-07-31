@@ -107,7 +107,10 @@ func filterRules(input string, delimiter string) string {
 
 func filterEscapeChars(in string) string {
 	// https://gist.github.com/fnky/458719343aabd01cfb17a3a4f7296797 -- Escape codes with description
-	var reEscapeComamnds = regexp.MustCompile(`\x1b\[\d{0,}[a-zA-Z]`)
+	// \x1b[37;41;1m
+
+	// To disable colors in MikroTik: https://forum.mikrotik.com/viewtopic.php?t=31350
+	var reEscapeComamnds = regexp.MustCompile(`\x1b\[\d{0,};{0,}\d{0,};{0,}\d{0,}[a-zA-Z]`)
 	return reEscapeComamnds.ReplaceAllString(in, ``)
 }
 
@@ -119,7 +122,7 @@ func (ctx *DeviceSerial) readStringFromBuffer(n uint64) (string, error) {
 		return "", err
 	}
 
-	return string(response), nil
+	return string(response[:read_n]), nil
 }
 
 func (ctx *DeviceSerial) getResponseForCmd(cmd string, expectedOutputSize uint64) (string, error) {
@@ -127,20 +130,21 @@ func (ctx *DeviceSerial) getResponseForCmd(cmd string, expectedOutputSize uint64
 	if err != nil {
 		return str, err
 	}
+	// str = strings.ReplaceAll(str, "\r", "")
 	str = filterEscapeChars(str)
 	str = filterRules(str, cmd)
 	return str, nil
 }
 
 func (ctx *DeviceSerial) RunSerialCommandWithReply(cmd string, timeout time.Duration) (string, error) {
-	cmd += "\r\n"
+	cmd += "\r"
 	written_n, err := ctx.port.Write([]byte(cmd))
 	if err != nil {
 		logging.CommonLog().Errorf("[deviceSerial] RunSerialCommandWithReply Written_n %d Write error: %s", written_n, err)
 		return "", err
 	}
 	time.Sleep(timeout)
-	return ctx.getResponseForCmd(cmd, 4096)
+	return ctx.getResponseForCmd(cmd, 8*1024*1024)
 }
 
 func (ctx *DeviceSerial) RunCommandWithReply(command device.IDeviceCommand) (device.IDeviceResponse, error) {

@@ -4,6 +4,9 @@ import (
 	"fmt"
 	"testing"
 	"time"
+
+	"github.com/altucor/http-knocker/device/command"
+	"github.com/altucor/http-knocker/firewallProtocol"
 )
 
 func Test_DeviceSerial_ConnectDisconnect(t *testing.T) {
@@ -39,7 +42,7 @@ func Test_DeviceSerial_GetFirewallRules(t *testing.T) {
 	}
 	dev := DeviceSerialNew(c)
 	dev.Start()
-	reply, err := dev.RunSerialCommandWithReply("/ip firewall export", time.Second)
+	reply, err := dev.RunSerialCommandWithReply(" /ip firewall filter print without-paging", time.Second)
 	dev.Stop()
 	if err != nil {
 		t.Error("Error getting firewall rules:", err)
@@ -52,4 +55,28 @@ func Test_DeviceSerial_GetFirewallRules(t *testing.T) {
 	} else {
 		t.Logf("\"DeviceSerial_ConnectDisconnect\" SUCCEDED")
 	}
+}
+
+func Test_DeviceSerial_RequestFirewallRulesWithParsing(t *testing.T) {
+	c := ConnectionSerialCfg{
+		Name:        "/dev/tty.usbserial-21230",
+		Baud:        115200,
+		ReadTimeout: 500,
+	}
+	dev := DeviceSerialNew(c)
+	dev.Start()
+	dev.SetProtocol(firewallProtocol.GetProtocolStorage().GetProtocolByName("terminal-router-os"))
+	reply, err := dev.RunCommandWithReply(command.GetNew())
+	dev.Stop()
+	if err != nil {
+		t.Error("Error getting firewall rules:", err)
+	}
+	fmt.Print(reply)
+
+	t.Log("\n")
+	// if len(reply) == 0 {
+	// 	t.Errorf("\"DeviceSerial_ConnectDisconnect\" FAILED")
+	// } else {
+	// 	t.Logf("\"DeviceSerial_ConnectDisconnect\" SUCCEDED")
+	// }
 }

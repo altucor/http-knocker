@@ -11,9 +11,10 @@ import (
 
 func Test_DeviceSerial_ConnectDisconnect(t *testing.T) {
 	c := ConnectionSerialCfg{
-		Name:        "/dev/tty.usbserial-21230",
-		Baud:        115200,
-		ReadTimeout: 500,
+		Name:              "/dev/tty.usbserial-21230",
+		Baud:              115200,
+		ReadTimeout:       500,
+		CommandTerminator: "\r",
 	}
 	dev := DeviceSerialNew(c)
 	dev.Start()
@@ -36,9 +37,10 @@ func Test_DeviceSerial_ConnectDisconnect(t *testing.T) {
 
 func Test_DeviceSerial_GetFirewallRules(t *testing.T) {
 	c := ConnectionSerialCfg{
-		Name:        "/dev/tty.usbserial-21230",
-		Baud:        115200,
-		ReadTimeout: 500,
+		Name:              "/dev/tty.usbserial-21230",
+		Baud:              115200,
+		ReadTimeout:       500,
+		CommandTerminator: "\r",
 	}
 	dev := DeviceSerialNew(c)
 	dev.Start()
@@ -59,9 +61,10 @@ func Test_DeviceSerial_GetFirewallRules(t *testing.T) {
 
 func Test_DeviceSerial_RequestFirewallRulesWithParsing(t *testing.T) {
 	c := ConnectionSerialCfg{
-		Name:        "/dev/tty.usbserial-21230",
-		Baud:        115200,
-		ReadTimeout: 500,
+		Name:              "/dev/tty.usbserial-21230",
+		Baud:              115200,
+		ReadTimeout:       500,
+		CommandTerminator: "\r",
 	}
 	dev := DeviceSerialNew(c)
 	dev.Start()

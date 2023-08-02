@@ -16,9 +16,10 @@ import (
 )
 
 type ConnectionSerialCfg struct {
-	Name        string        `yaml:"name"`
-	Baud        uint32        `yaml:"baud"`
-	ReadTimeout time.Duration `yaml:"readTimeout"`
+	Name              string        `yaml:"name"`
+	Baud              uint32        `yaml:"baud"`
+	ReadTimeout       time.Duration `yaml:"read-timeout"`
+	CommandTerminator string        `yaml:"command-terminator"`
 }
 
 type outputCollector struct {
@@ -130,14 +131,13 @@ func (ctx *DeviceSerial) getResponseForCmd(cmd string, expectedOutputSize uint64
 	if err != nil {
 		return str, err
 	}
-	// str = strings.ReplaceAll(str, "\r", "")
 	str = filterEscapeChars(str)
 	str = filterRules(str, cmd)
 	return str, nil
 }
 
 func (ctx *DeviceSerial) RunSerialCommandWithReply(cmd string, timeout time.Duration) (string, error) {
-	cmd += "\r"
+	cmd += ctx.config.CommandTerminator
 	written_n, err := ctx.port.Write([]byte(cmd))
 	if err != nil {
 		logging.CommonLog().Errorf("[deviceSerial] RunSerialCommandWithReply Written_n %d Write error: %s", written_n, err)

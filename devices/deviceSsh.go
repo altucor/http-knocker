@@ -15,7 +15,7 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"golang.org/x/crypto/ssh"
-	kh "golang.org/x/crypto/ssh/knownhosts"
+	"golang.org/x/crypto/ssh/knownhosts"
 )
 
 type ConnectionSSHCfg struct {
@@ -143,7 +143,7 @@ func (ctx *DeviceSsh) clientConnect() error {
 
 	var hostKeyCallback ssh.HostKeyCallback = ctx.hostKeyCallback
 	if ctx.config.KnownHosts != "" {
-		hostKeyCallback, err = kh.New(ctx.config.KnownHosts)
+		hostKeyCallback, err = knownhosts.New(ctx.config.KnownHosts)
 		if err != nil {
 			logging.CommonLog().Error("[deviceSsh clientConnect] error parsing KnownHosts:", err)
 			return err

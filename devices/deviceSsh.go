@@ -3,6 +3,8 @@ package devices
 import (
 	"errors"
 	"fmt"
+	"io/ioutil"
+	"net"
 	"sync"
 	"time"
 
@@ -13,6 +15,7 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"golang.org/x/crypto/ssh"
+	kh "golang.org/x/crypto/ssh/knownhosts"
 )
 
 type ConnectionSSHCfg struct {
@@ -21,6 +24,8 @@ type ConnectionSSHCfg struct {
 	Host                       string `yaml:"host"`
 	Port                       uint16 `yaml:"port"`
 	KnownHosts                 string `yaml:"knownHosts"`
+	PrivateKeyPath             string `yaml:"private-key"`
+	PrivateKeyPassphrase       string `yaml:"private-key-passphrase"`
 	ConnectionKeepAliveTimeout time.Duration
 }
 
@@ -97,14 +102,61 @@ func (ctx *DeviceSsh) clientConnectionMonitor() {
 	}
 }
 
+func (ctx *DeviceSsh) hostKeyCallback(hostname string, remote net.Addr, key ssh.PublicKey) error {
+	logging.CommonLog().Info("[deviceSsh hostKeyCallback] called:", hostname, remote, key)
+	return nil
+}
+
+func (ctx *DeviceSsh) getAuthMethod() (ssh.AuthMethod, error) {
+	var err error = nil
+	if ctx.config.PrivateKeyPath != "" {
+		var key []byte
+		key, err = ioutil.ReadFile(ctx.config.PrivateKeyPath)
+		if err != nil {
+			return nil, err
+		}
+		var signer ssh.Signer = nil
+		if ctx.config.PrivateKeyPassphrase != "" {
+			signer, err = ssh.ParsePrivateKeyWithPassphrase(key, []byte(ctx.config.PrivateKeyPassphrase))
+		} else {
+			signer, err = ssh.ParsePrivateKey(key)
+		}
+		if err != nil {
+			return nil, err
+		}
+		return ssh.PublicKeys(signer), nil
+	}
+	if ctx.config.Password != "" {
+		return ssh.Password(ctx.config.Password), nil
+	}
+
+	return nil, errors.New("cannot prepare auth method")
+}
+
 func (ctx *DeviceSsh) clientConnect() error {
 	var err error = nil
+	authMethod, err := ctx.getAuthMethod()
+	if err != nil {
+		logging.CommonLog().Error("[deviceSsh clientConnect] error getting auth method:", err)
+		return err
+	}
+
+	var hostKeyCallback ssh.HostKeyCallback = ctx.hostKeyCallback
+	if ctx.config.KnownHosts != "" {
+		hostKeyCallback, err = kh.New(ctx.config.KnownHosts)
+		if err != nil {
+			logging.CommonLog().Error("[deviceSsh clientConnect] error parsing KnownHosts:", err)
+			return err
+		}
+	}
+
 	config := &ssh.ClientConfig{
 		User: ctx.config.Username,
 		Auth: []ssh.AuthMethod{
-			ssh.Password(ctx.config.Password),
+			authMethod,
 		},
-		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+		HostKeyCallback: hostKeyCallback,
+		Timeout:         time.Second * 10,
 	}
 	ctx.client, err = ssh.Dial("tcp", ctx.config.Host+":"+fmt.Sprint(ctx.config.Port), config)
 	if err == nil {

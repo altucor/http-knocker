@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/altucor/http-knocker/common"
 	"github.com/altucor/http-knocker/device"
 	"github.com/altucor/http-knocker/device/response"
 	"github.com/altucor/http-knocker/firewallProtocol"
@@ -19,14 +20,14 @@ import (
 )
 
 type ConnectionSSHCfg struct {
-	Username                   string `yaml:"username"`
-	Password                   string `yaml:"password"`
-	Host                       string `yaml:"host"`
-	Port                       uint16 `yaml:"port"`
-	KnownHosts                 string `yaml:"knownHosts"`
-	PrivateKeyPath             string `yaml:"private-key"`
-	PrivateKeyPassphrase       string `yaml:"private-key-passphrase"`
-	ConnectionKeepAliveTimeout time.Duration
+	Username                   string                 `yaml:"username"`
+	Password                   string                 `yaml:"password"`
+	Host                       string                 `yaml:"host"`
+	Port                       uint16                 `yaml:"port"`
+	KnownHosts                 string                 `yaml:"knownHosts"`
+	PrivateKeyPath             string                 `yaml:"private-key"`
+	PrivateKeyPassphrase       string                 `yaml:"private-key-passphrase"`
+	ConnectionKeepAliveTimeout common.DurationSeconds `yaml:"connection-keep-alive"`
 }
 
 type IFirewallSshProtocol interface {
@@ -46,13 +47,12 @@ type DeviceSsh struct {
 }
 
 func DeviceSshNew(cfg ConnectionSSHCfg) *DeviceSsh {
-	cfg.ConnectionKeepAliveTimeout = 10 * time.Second // TODO: Remove maybe hardcode or remove from configurable params
 	ctx := &DeviceSsh{
 		config:                   cfg,
 		protocol:                 nil,
 		client:                   nil,
 		lastCLientCloseError:     nil,
-		connectionKeepAliveTimer: *time.NewTimer(cfg.ConnectionKeepAliveTimeout),
+		connectionKeepAliveTimer: *time.NewTimer(cfg.ConnectionKeepAliveTimeout.GetValue()),
 		session:                  nil,
 	}
 

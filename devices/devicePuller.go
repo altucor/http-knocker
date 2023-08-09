@@ -177,6 +177,7 @@ func (ctx *DevicePuller) pushRulesSet(w http.ResponseWriter, r *http.Request) {
 		frwRules = append(frwRules, rule)
 	}
 
+	logging.CommonLog().Debug("Frw rules count: ", len(frwRules))
 	logging.CommonLog().Debug("Frw rules: ", frwRules)
 	err := ctx.firewallState.pushRuleSet(frwRules)
 	if err != nil {

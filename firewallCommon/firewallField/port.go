@@ -14,16 +14,11 @@ type Port struct {
 func (ctx *Port) TryInitFromString(param string) error {
 	port, err := strconv.ParseUint(param, 10, 16)
 	if err != nil {
-		logging.CommonLog().Error("Cannot init from string, %s\n", err)
+		logging.CommonLog().Errorf("cannot init from string, %s\n", err)
 		return err
 	}
 	ctx.value = uint16(port)
 	return nil
-}
-
-func PortTypeFromString(idString string) (Port, error) {
-	id := Port{}
-	return id, id.TryInitFromString(idString)
 }
 
 func (ctx *Port) SetValue(value uint16) {

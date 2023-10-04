@@ -13,15 +13,10 @@ func (ctx *Bool) TryInitFromString(param string) error {
 	value, err := strconv.ParseBool(param)
 	if err != nil {
 		ctx.value = false
-		return errors.New("Cannot init from string")
+		return errors.New("cannot init from string")
 	}
 	ctx.value = value
 	return nil
-}
-
-func BoolTypeFromString(idString string) (Bool, error) {
-	id := Bool{}
-	return id, id.TryInitFromString(idString)
 }
 
 func (ctx *Bool) SetValue(value bool) {

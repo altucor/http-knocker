@@ -4,7 +4,7 @@ import (
 	"github.com/altucor/http-knocker/firewallCommon/firewallField"
 )
 
-const RULE_ID_INVALID = 0xFFFFFFFFFFFFFFFF
+// const RULE_ID_INVALID = 0xFFFFFFFFFFFFFFFF
 
 type FirewallRule struct {
 	Id          firewallField.Number
@@ -23,7 +23,7 @@ type FirewallRule struct {
 
 func (ctx *FirewallRule) ToMap() map[string]string {
 	ruleMap := make(map[string]string)
-	if ctx.Id.GetValue() != RULE_ID_INVALID {
+	if ctx.Id.GetValue() != firewallField.RULE_ID_INVALID {
 		ruleMap["id"] = ctx.Id.GetString()
 	}
 	ruleMap["action"] = ctx.Action.GetString()
@@ -38,34 +38,54 @@ func (ctx *FirewallRule) ToMap() map[string]string {
 	return ruleMap
 }
 
-func (ctx *FirewallRule) FromMap(m map[string]string) {
+func (ctx *FirewallRule) FromMap(m map[string]string) error {
 	if _, ok := m["id"]; ok {
-		ctx.Id.TryInitFromString(m["id"])
+		if err := ctx.Id.TryInitFromString(m["id"]); err != nil {
+			return err
+		}
 	}
 	if _, ok := m["action"]; ok {
-		ctx.Action.TryInitFromString(m["action"])
+		if err := ctx.Action.TryInitFromString(m["action"]); err != nil {
+			return err
+		}
 	}
 	if _, ok := m["chain"]; ok {
-		ctx.Chain.TryInitFromString(m["chain"])
+		if err := ctx.Chain.TryInitFromString(m["chain"]); err != nil {
+			return err
+		}
 	}
 	if _, ok := m["disabled"]; ok {
-		ctx.Disabled.TryInitFromString(m["disabled"])
+		if err := ctx.Disabled.TryInitFromString(m["disabled"]); err != nil {
+			return err
+		}
 	}
 	if _, ok := m["protocol"]; ok {
-		ctx.Protocol.TryInitFromString(m["protocol"])
+		if err := ctx.Protocol.TryInitFromString(m["protocol"]); err != nil {
+			return err
+		}
 	}
 	if _, ok := m["src-address"]; ok {
-		ctx.SrcAddress.TryInitFromString(m["src-address"])
+		if err := ctx.SrcAddress.TryInitFromString(m["src-address"]); err != nil {
+			return err
+		}
 	}
 	if _, ok := m["dst-port"]; ok {
-		ctx.DstPort.TryInitFromString(m["dst-port"])
+		if err := ctx.DstPort.TryInitFromString(m["dst-port"]); err != nil {
+			return err
+		}
 	}
 	if _, ok := m["comment"]; ok {
-		ctx.Comment.TryInitFromString(m["comment"])
+		if err := ctx.Comment.TryInitFromString(m["comment"]); err != nil {
+			return err
+		}
 	}
 	if _, ok := m["place-before"]; ok {
-		ctx.PlaceBefore.TryInitFromString(m["place-before"])
+		if err := ctx.PlaceBefore.TryInitFromString(m["place-before"]); err != nil {
+			return err
+		}
 	}
+
+	return nil
 }
 
 func FirewallRuleFromMap(m map[string]string) FirewallRule {

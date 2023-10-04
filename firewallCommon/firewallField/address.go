@@ -15,7 +15,7 @@ func (ctx *Address) TryInitFromString(param string) error {
 	param = strings.Split(param, "/")[0] // 1.1.1.1/32 detect and skip mask separator
 	addr, err := netip.ParseAddr(param)
 	if err != nil {
-		logging.CommonLog().Error("Cannot init from string, %s\n", err)
+		logging.CommonLog().Errorf("cannot init from string, %s\n", err)
 		return err
 	}
 	ctx.value = addr

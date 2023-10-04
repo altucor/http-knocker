@@ -9,6 +9,7 @@ import (
 	"github.com/altucor/http-knocker/device/command"
 	"github.com/altucor/http-knocker/device/response"
 	"github.com/altucor/http-knocker/firewallCommon"
+	"github.com/altucor/http-knocker/firewallCommon/firewallField"
 	"github.com/altucor/http-knocker/logging"
 )
 
@@ -20,7 +21,7 @@ func (ctx *IpTablesRule) toProtocol(rule firewallCommon.FirewallRule) string {
 	// iptables -I INPUT 2 -p tcp -s 10.1.1.2 --dport 22 -j ACCEPT -m comment --comment "My comments here"
 	var result string = ""
 	result += "-I " + strings.ToUpper(rule.Chain.GetString()) + " "
-	if rule.PlaceBefore.GetValue() != firewallCommon.RULE_ID_INVALID {
+	if rule.PlaceBefore.GetValue() != firewallField.RULE_ID_INVALID {
 		result += fmt.Sprintf("%d", rule.PlaceBefore.GetValue()) + " "
 	}
 	result += "-p " + rule.Protocol.GetString() + " "

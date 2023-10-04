@@ -12,6 +12,7 @@ import (
 	"github.com/altucor/http-knocker/device/command"
 	"github.com/altucor/http-knocker/device/response"
 	"github.com/altucor/http-knocker/firewallCommon"
+	"github.com/altucor/http-knocker/firewallCommon/firewallField"
 	"github.com/altucor/http-knocker/logging"
 )
 
@@ -21,7 +22,7 @@ type routerOsRestRule struct {
 func (ctx *routerOsRestRule) toProtocol(rule firewallCommon.FirewallRule) map[string]interface{} {
 	// modify map keys and values to conform device protocol
 	mapObj := make(map[string]interface{})
-	if rule.Id.GetValue() != firewallCommon.RULE_ID_INVALID {
+	if rule.Id.GetValue() != firewallField.RULE_ID_INVALID {
 		mapObj[".id"] = fmt.Sprintf("*%X", rule.Id.GetValue())
 	}
 	mapObj["action"] = rule.Action.GetString()

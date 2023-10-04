@@ -9,11 +9,6 @@ func (ctx *Text) TryInitFromString(param string) error {
 	return nil
 }
 
-func TextTypeFromString(idString string) (Text, error) {
-	id := Text{}
-	return id, id.TryInitFromString(idString)
-}
-
 func (ctx *Text) SetValue(value string) {
 	ctx.value = value
 }

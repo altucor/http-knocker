@@ -8,18 +8,18 @@ import (
 type ChainType uint8
 
 const (
-	INVALID ChainType = 0xFF
-	INPUT   ChainType = 0
-	FORWARD ChainType = 1
-	OUTPUT  ChainType = 2
+	CHAIN_INVALID ChainType = 0
+	CHAIN_INPUT   ChainType = 1
+	CHAIN_FORWARD ChainType = 2
+	CHAIN_OUTPUT  ChainType = 3
 )
 
 var (
 	chainMap = map[ChainType]string{
-		INVALID: "<INVALID>",
-		INPUT:   "input",
-		FORWARD: "forward",
-		OUTPUT:  "output",
+		CHAIN_INVALID: "<INVALID>",
+		CHAIN_INPUT:   "input",
+		CHAIN_FORWARD: "forward",
+		CHAIN_OUTPUT:  "output",
 	}
 )
 
@@ -28,26 +28,17 @@ type Chain struct {
 }
 
 func (ctx *Chain) TryInitFromString(param string) error {
-	param = strings.ToLower(param)
-	for key, value := range chainMap {
-		if value == param {
-			ctx.value = key
-			return nil
+	if len(param) > 0 {
+		param = strings.ToLower(param)
+		for key, value := range chainMap {
+			if value == param {
+				ctx.value = key
+				return nil
+			}
 		}
 	}
-	ctx.value = INVALID
-	return errors.New("Cannot init from string")
-}
-
-func ChainTypeFromString(chainString string) (Chain, error) {
-	chainString = strings.ToLower(chainString)
-	for key, value := range chainMap {
-		if value == chainString {
-			return Chain{value: key}, nil
-		}
-	}
-
-	return Chain{value: INVALID}, errors.New("Invalid chain text name")
+	ctx.value = CHAIN_INVALID
+	return errors.New("cannot init from string")
 }
 
 func (ctx *Chain) SetValue(value ChainType) {

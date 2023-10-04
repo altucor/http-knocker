@@ -21,9 +21,9 @@ func AddNew(
 	placeBefore uint64,
 ) Add {
 	frwRule := firewallCommon.FirewallRule{}
-	frwRule.Id.SetValue(firewallCommon.RULE_ID_INVALID)
+	frwRule.Id.SetValue(firewallField.RULE_ID_INVALID)
 	frwRule.Action.SetValue(firewallField.ACTION_ACCEPT)
-	frwRule.Chain.SetValue(firewallField.INPUT)
+	frwRule.Chain.SetValue(firewallField.CHAIN_INPUT)
 	frwRule.Disabled.SetValue(false)
 	frwRule.Protocol.SetValue(protocol)
 	frwRule.SrcAddress.SetValue(clientAddr)

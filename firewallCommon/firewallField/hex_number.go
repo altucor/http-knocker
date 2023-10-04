@@ -4,25 +4,24 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"strings"
 )
+
+const RULE_ID_INVALID = 0xFFFFFFFFFFFFFFFF
 
 type Number struct {
 	value uint64
 }
 
 func (ctx *Number) TryInitFromString(param string) error {
+	param = strings.ReplaceAll(param, "0x", "")
 	value, err := strconv.ParseUint(param, 16, 64)
 	if err != nil {
-		ctx.value = 0xFFFFFFFFFFFFFFFF
+		ctx.value = RULE_ID_INVALID
 		return errors.New("cannot init from string")
 	}
 	ctx.value = value
 	return nil
-}
-
-func NumberTypeFromString(idString string) (Number, error) {
-	id := Number{}
-	return id, id.TryInitFromString(idString)
 }
 
 func (ctx *Number) SetValue(value uint64) {
@@ -34,5 +33,5 @@ func (ctx Number) GetValue() uint64 {
 }
 
 func (ctx Number) GetString() string {
-	return fmt.Sprintf("%d", ctx.value)
+	return fmt.Sprintf("0x%02X", ctx.value)
 }

@@ -161,7 +161,7 @@ func (ctx *DeviceSsh) clientConnect() error {
 	ctx.client, err = ssh.Dial("tcp", ctx.config.Host+":"+fmt.Sprint(ctx.config.Port), config)
 	if err == nil {
 		go ctx.clientConnectionMonitor()
-		ctx.connectionKeepAliveTimer.Reset(ctx.config.ConnectionKeepAliveTimeout)
+		ctx.connectionKeepAliveTimer.Reset(ctx.config.ConnectionKeepAliveTimeout.GetValue())
 		go ctx.keepAliveHandler()
 	}
 	return err

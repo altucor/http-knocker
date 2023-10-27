@@ -11,6 +11,10 @@ type Port struct {
 	value uint16
 }
 
+func PortNew(val uint16) Port {
+	return Port{value: val}
+}
+
 func (ctx *Port) TryInitFromString(param string) error {
 	port, err := strconv.ParseUint(param, 10, 16)
 	if err != nil {

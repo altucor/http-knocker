@@ -66,8 +66,7 @@ func Test_FirewallField_Protocol_SetGetValueString(t *testing.T) {
 		input := PROTOCOL_ICMP
 		expected := PROTOCOL_ICMP
 
-		prot := ProtocolNew()
-		prot.SetValue(input)
+		prot := ProtocolNew(input)
 		result := prot.GetValue()
 
 		if result == expected {
@@ -77,11 +76,11 @@ func Test_FirewallField_Protocol_SetGetValueString(t *testing.T) {
 		}
 	}
 	{
-		input := ""
-		expected := PROTOCOL_INVALID
+		input := PROTOCOL_TCP
+		expected := "tcp"
 
-		prot := ProtocolNew()
-		result := prot.GetValue()
+		prot := ProtocolNew(PROTOCOL_TCP)
+		result := prot.GetString()
 
 		if result == expected {
 			t.Logf("\"Test_FirewallField_Protocol_SetGetValueString('%v')\" SUCCEDED, expected -> %v, got -> %v", input, expected, result)

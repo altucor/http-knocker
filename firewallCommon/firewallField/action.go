@@ -31,6 +31,10 @@ type Action struct {
 	value ActionType
 }
 
+func ActionNew(val ActionType) Action {
+	return Action{value: val}
+}
+
 func (ctx *Action) TryInitFromString(param string) error {
 	if len(param) > 0 {
 		param = strings.ToLower(param)

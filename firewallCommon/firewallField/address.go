@@ -11,6 +11,10 @@ type Address struct {
 	value netip.Addr
 }
 
+func AddressNew(val netip.Addr) Address {
+	return Address{value: val}
+}
+
 func (ctx *Address) TryInitFromString(param string) error {
 	param = strings.Split(param, "/")[0] // 1.1.1.1/32 detect and skip mask separator
 	addr, err := netip.ParseAddr(param)

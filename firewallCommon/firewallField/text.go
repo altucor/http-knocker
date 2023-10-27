@@ -4,6 +4,10 @@ type Text struct {
 	value string
 }
 
+func TextNew(val string) Text {
+	return Text{value: val}
+}
+
 func (ctx *Text) TryInitFromString(param string) error {
 	ctx.value = param
 	return nil

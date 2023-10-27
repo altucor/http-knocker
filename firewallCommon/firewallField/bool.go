@@ -9,6 +9,10 @@ type Bool struct {
 	value bool
 }
 
+func BoolNew(val bool) Bool {
+	return Bool{value: val}
+}
+
 func (ctx *Bool) TryInitFromString(param string) error {
 	value, err := strconv.ParseBool(param)
 	if err != nil {

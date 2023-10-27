@@ -300,9 +300,8 @@ type Protocol struct {
 	value ProtocolType
 }
 
-func ProtocolNew() *Protocol {
-	p := Protocol{value: PROTOCOL_INVALID}
-	return &p
+func ProtocolNew(val ProtocolType) Protocol {
+	return Protocol{value: val}
 }
 
 func (ctx *Protocol) TryInitFromString(param string) error {

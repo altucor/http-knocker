@@ -13,6 +13,10 @@ type Number struct {
 	value uint64
 }
 
+func NumberNew(val uint64) Number {
+	return Number{value: val}
+}
+
 func (ctx *Number) TryInitFromString(param string) error {
 	param = strings.ReplaceAll(param, "0x", "")
 	value, err := strconv.ParseUint(param, 16, 64)

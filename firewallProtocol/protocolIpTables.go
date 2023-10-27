@@ -45,7 +45,7 @@ func iptablesParseParamViaRegex(rule string, frwParam firewallCommon.IFirewallFi
 func (ctx *IpTablesRule) fromProtocol(data string) (firewallCommon.FirewallRule, error) {
 	// modify map keys and values to conform common vision
 	rule := firewallCommon.FirewallRule{}
-	iptablesParseParamViaRegex(data, &rule.Chain, `-A\s([^\s]+)\s`)
+	iptablesParseParamViaRegex(data, &rule.Chain, `-[AI]\s([^\s]+)\s`)
 	iptablesParseParamViaRegex(data, &rule.Action, `\s-j\s([^\s]+)`)
 	iptablesParseParamViaRegex(data, &rule.Protocol, `\s-p\s([A-Za-z]+)`)
 	iptablesParseParamViaRegex(data, &rule.SrcAddress, `\s-s\s([^\s]+)`)

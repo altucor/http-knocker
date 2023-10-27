@@ -27,6 +27,10 @@ type Chain struct {
 	value ChainType
 }
 
+func ChainNew(val ChainType) Chain {
+	return Chain{value: val}
+}
+
 func (ctx *Chain) TryInitFromString(param string) error {
 	if len(param) > 0 {
 		param = strings.ToLower(param)
